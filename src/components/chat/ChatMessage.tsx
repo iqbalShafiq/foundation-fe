@@ -5,17 +5,21 @@ import rehypeHighlight from 'rehype-highlight';
 import { ChatMessage as ChatMessageType, FeedbackType } from '../../types/chat';
 import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
+import { ImageViewer } from '../ui';
 import { apiService } from '../../services/api';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  conversationImages?: string[];
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [] }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [userFeedback, setUserFeedback] = useState<FeedbackType | null>(null);
   const [selectedFeedbackType, setSelectedFeedbackType] = useState<FeedbackType>('like');
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const handleCopy = async () => {
     try {
@@ -78,6 +82,29 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       </div>
       
       <div className={`${message.isUser ? 'flex-1 flex flex-col items-end' : 'flex-1'} max-w-3xl`}>
+        {/* Display images above message content */}
+        {message.imageUrls && message.imageUrls.length > 0 && (
+          <div className={`mb-2 ${message.isUser ? 'flex justify-end' : ''}`}>
+            <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'}`}>
+              <div className="flex flex-wrap gap-2">
+                {message.imageUrls.map((imageUrl, index) => (
+                  <img
+                    key={index}
+                    src={`http://localhost:8000${imageUrl}`}
+                    alt={`Attachment ${index + 1}`}
+                    className="max-w-xs max-h-64 object-cover rounded-lg border border-gray-600 shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                    onClick={() => {
+                      const imageIndex = conversationImages.indexOf(imageUrl);
+                      setSelectedImageIndex(imageIndex >= 0 ? imageIndex : 0);
+                      setImageViewerOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'} px-5 py-3 shadow-md ${
           message.isUser
             ? 'bg-blue-600 text-white rounded-2xl rounded-tr-md'
@@ -91,7 +118,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                 // Override default styling for better chat bubble appearance
                 p: ({ children, node }) => {
                   // Check if this paragraph is inside a list item
-                  const isInListItem = node?.parent?.tagName === 'li';
+                  const isInListItem = (node as any)?.parent?.tagName === 'li';
                   return (
                     <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
                       {children}
@@ -264,6 +291,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           initialFeedbackType={selectedFeedbackType}
         />
       )}
+      
+      {/* Image Viewer */}
+      <ImageViewer
+        isOpen={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        images={conversationImages}
+        initialIndex={selectedImageIndex}
+      />
     </div>
   );
 };

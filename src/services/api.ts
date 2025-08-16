@@ -83,18 +83,30 @@ class ApiService {
     return response.data;
   }
 
-  async* streamChat(message: string, model: ModelType = 'Standard', conversationId?: string) {
+  async* streamChat(message: string, model: ModelType = 'Standard', conversationId?: string, images?: File[]) {
+    // Create FormData for multipart form support
+    const formData = new FormData();
+    formData.append('message', message);
+    formData.append('model', model);
+    
+    if (conversationId) {
+      formData.append('conversation_id', conversationId);
+    }
+    
+    // Add images if provided
+    if (images && images.length > 0) {
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+    }
+
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        // Don't set Content-Type header for FormData - browser will set it with boundary
       },
-      body: JSON.stringify({ 
-        message, 
-        model, 
-        conversation_id: conversationId 
-      }),
+      body: formData,
     });
 
     if (!response.ok) {

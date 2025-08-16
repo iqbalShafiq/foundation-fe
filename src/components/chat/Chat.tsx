@@ -66,7 +66,7 @@ const Chat: React.FC = () => {
     return content.replace(/(\d+\.\s.*?)\n\n/g, '$1\n');
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, images?: File[]) => {
     const userMessage: ChatMessageType = {
       id: generateMessageId(),
       content,
@@ -94,7 +94,8 @@ const Chat: React.FC = () => {
       for await (const chunk of apiService.streamChat(
         content,
         selectedModel,
-        currentConversationId
+        currentConversationId,
+        images
       )) {
         if (chunk.error) {
           throw new Error(chunk.error);
@@ -137,6 +138,7 @@ const Chat: React.FC = () => {
                 timestamp: new Date(msg.created_at),
                 model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
                 messageId: msg.role === 'assistant' ? msg.id : undefined,
+                imageUrls: msg.image_urls,
               }));
               setMessages(updatedMessages);
             } catch (error) {
@@ -187,6 +189,7 @@ const Chat: React.FC = () => {
         timestamp: new Date(msg.created_at),
         model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
         messageId: msg.role === 'assistant' ? msg.id : undefined, // Add messageId for AI messages
+        imageUrls: msg.image_urls,
       }));
       
       setMessages(loadedMessages);
@@ -212,9 +215,8 @@ const Chat: React.FC = () => {
     setCurrentConversationTitle("");
     setMessages([]);
     setCurrentStreamContent("");
-    setCurrentView('chat'); // Switch to chat view when starting new conversation
+    setCurrentView('chat');
     
-    // Focus input when starting new conversation
     setTimeout(() => {
       chatInputRef.current?.focus();
     }, 50);
@@ -269,9 +271,20 @@ const Chat: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))}
+                  {(() => {
+                    // Collect all images from the conversation
+                    const allImages = messages
+                      .filter(msg => msg.imageUrls && msg.imageUrls.length > 0)
+                      .flatMap(msg => msg.imageUrls!);
+                    
+                    return messages.map((message) => (
+                      <ChatMessage 
+                        key={message.id} 
+                        message={message} 
+                        conversationImages={allImages}
+                      />
+                    ));
+                  })()}
 
                   {isStreaming && (
                     <>
@@ -289,7 +302,7 @@ const Chat: React.FC = () => {
                                   components={{
                                     p: ({ children, node }) => {
                                       // Check if this paragraph is inside a list item
-                                      const isInListItem = node?.parent?.tagName === 'li';
+                                      const isInListItem = (node as any)?.parent?.tagName === 'li';
                                       return (
                                         <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
                                           {children}

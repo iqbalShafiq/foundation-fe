@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Send, ChevronDown } from 'lucide-react';
+import { Send, ChevronDown, Image as ImageIcon, X } from 'lucide-react';
 import { ModelType } from '../../types/chat';
 import { Modal } from '../ui';
 import ModelSelector from './ModelSelector';
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, images?: File[]) => void;
   disabled?: boolean;
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
@@ -24,8 +24,10 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   disableModelSelection = false
 }, ref) => {
   const [message, setMessage] = useState('');
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Focus management
   useImperativeHandle(ref, () => ({
@@ -45,8 +47,9 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      onSendMessage(message); // Don't trim to preserve line breaks
+      onSendMessage(message, selectedImages.length > 0 ? selectedImages : undefined); // Don't trim to preserve line breaks
       setMessage('');
+      setSelectedImages([]);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -80,12 +83,57 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      setSelectedImages(prev => [...prev, ...imageFiles]);
+    }
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <>
       <div className="bg-gray-800 px-4 py-4">
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSubmit} className="w-full ml-[-5px]">
             <div className="bg-gray-700 border border-gray-600 rounded-2xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all duration-200">
+            
+            {/* Image Preview Section */}
+            {selectedImages.length > 0 && (
+              <div className="px-4 pt-4">
+                <div className="flex flex-wrap gap-2">
+                  {selectedImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Selected ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-gray-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs transition-colors duration-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <textarea
               ref={textareaRef}
               value={message}
@@ -98,23 +146,37 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             />
             
             <div className="flex items-center justify-between px-4 pb-3">
-              <button
-                type="button"
-                onClick={() => !disableModelSelection && setIsModelModalOpen(true)}
-                disabled={disableModelSelection}
-                className={`bg-gray-600/50 text-gray-300 text-sm px-3 py-1 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 flex items-center space-x-2 ${
-                  disableModelSelection 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:bg-gray-600/70 cursor-pointer'
-                }`}
-                title={disableModelSelection 
-                  ? `Model locked to ${selectedModel} for this conversation` 
-                  : `Select AI model`
-                }
-              >
-                <span>{selectedModel}</span>
-                <ChevronDown className="h-3 w-3" />
-              </button>
+              <div className="flex items-center space-x-2">
+                {/* Image Upload Button */}
+                <button
+                  type="button"
+                  onClick={handleImageClick}
+                  disabled={disabled}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-600/50 text-gray-300 rounded-lg hover:bg-gray-600/70 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  title="Add images"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </button>
+                
+                {/* Model Selector Button */}
+                <button
+                  type="button"
+                  onClick={() => !disableModelSelection && setIsModelModalOpen(true)}
+                  disabled={disableModelSelection}
+                  className={`bg-gray-600/50 text-gray-300 text-sm px-3 py-1 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 flex items-center space-x-2 ${
+                    disableModelSelection 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:bg-gray-600/70 cursor-pointer'
+                  }`}
+                  title={disableModelSelection 
+                    ? `Model locked to ${selectedModel} for this conversation` 
+                    : `Select AI model`
+                  }
+                >
+                  <span>{selectedModel}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </div>
               
               <button
                 type="submit"
@@ -128,6 +190,16 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         </form>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleImageSelect}
+        className="hidden"
+      />
 
       <Modal
         isOpen={isModelModalOpen}

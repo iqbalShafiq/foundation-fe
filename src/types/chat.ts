@@ -13,6 +13,7 @@ export type ChatMessage = {
   timestamp: Date;
   model?: ModelType;
   messageId?: number; // Backend message ID for feedback
+  imageUrls?: string[]; // URLs of images attached to this message
 };
 
 export type StreamChunk = {
@@ -47,6 +48,7 @@ export type Message = {
   id: number;
   role: 'user' | 'assistant';
   content: string;
+  image_urls?: string[];
   created_at: string;
 };
 
