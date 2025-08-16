@@ -181,7 +181,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     </div>
                     
                     {/* Conversations List */}
-                    <div className="px-2 space-y-1">
+                    <div className="px-2 space-y-1 pb-4">
                       {conversations.map((conversation) => (
                         <button
                           key={conversation.id}
