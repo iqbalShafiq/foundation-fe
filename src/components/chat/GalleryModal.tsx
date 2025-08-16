@@ -269,7 +269,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                     <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
                       Message Content
                     </label>
-                    <p className="text-sm text-gray-200 mt-1 bg-gray-800 p-3 rounded-lg">
+                    <p className="text-sm text-gray-200 mt-1 bg-gray-800 p-3 rounded-lg line-clamp-1 overflow-hidden text-ellipsis whitespace-nowrap">
                       {selectedImage.message_content}
                     </p>
                   </div>

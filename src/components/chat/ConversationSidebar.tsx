@@ -73,16 +73,16 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   return (
     <div className={`${isCollapsed ? 'w-16' : 'w-80'} bg-gray-900 border-r border-gray-700 flex flex-col h-full transition-all duration-300`}>
       {/* Header */}
-      <div className="px-4 py-4 bg-gray-900">
-        <div className="flex items-center justify-between h-8">
+      <div className={`${isCollapsed ? 'px-2' : 'px-4'} py-4 bg-gray-900 transition-all duration-300`}>
+        <div className={`flex items-center h-8 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!isCollapsed && (
-            <h2 className="text-lg font-semibold text-gray-100">
+            <h2 className="text-lg font-semibold text-gray-100 whitespace-nowrap transition-opacity duration-300">
               Foundation Chat
             </h2>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200"
+            className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 flex-shrink-0"
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isCollapsed ? (

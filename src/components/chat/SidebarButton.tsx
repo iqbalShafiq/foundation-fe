@@ -7,6 +7,7 @@ interface SidebarButtonProps {
   onClick?: () => void;
   isActive?: boolean;
   className?: string;
+  collapsed?: boolean;
 }
 
 const SidebarButton: React.FC<SidebarButtonProps> = ({
