@@ -176,7 +176,7 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
       
       {/* Pagination Footer - Always at bottom */}
       {totalPages > 1 && (
-        <div className="px-4 py-4 flex-shrink-0">
+        <div className="px-4 py-6 flex-shrink-0 flex items-center justify-center">
           <div className="max-w-6xl mx-auto flex items-center justify-center space-x-4">
             <Button
               variant="ghost"
