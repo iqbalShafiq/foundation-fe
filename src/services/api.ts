@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { LoginRequest, RegisterRequest, AuthResponse, User } from '../types/auth';
 import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse } from '../types/chat';
 import { UserPreferences, UserPreferencesUpdate } from '../types/preferences';
+import { GalleryResponse } from '../types/gallery';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -170,6 +171,21 @@ class ApiService {
 
   async updateUserPreferences(preferences: UserPreferencesUpdate): Promise<UserPreferences> {
     const response = await this.api.put<UserPreferences>('/preferences', preferences);
+    return response.data;
+  }
+
+  async getMyGallery(page: number = 1, limit: number = 20): Promise<GalleryResponse> {
+    const response = await this.api.get<GalleryResponse>(`/gallery/me?page=${page}&limit=${limit}`);
+    return response.data;
+  }
+
+  async getUserGallery(userId: number, page: number = 1, limit: number = 20): Promise<GalleryResponse> {
+    const response = await this.api.get<GalleryResponse>(`/gallery/user/${userId}?page=${page}&limit=${limit}`);
+    return response.data;
+  }
+
+  async getAllGallery(page: number = 1, limit: number = 20): Promise<GalleryResponse> {
+    const response = await this.api.get<GalleryResponse>(`/gallery/all?page=${page}&limit=${limit}`);
     return response.data;
   }
 }

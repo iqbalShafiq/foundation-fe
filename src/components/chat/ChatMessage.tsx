@@ -7,6 +7,7 @@ import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 import { ImageViewer } from '../ui';
 import { apiService } from '../../services/api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -90,7 +91,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
                 {message.imageUrls.map((imageUrl, index) => (
                   <img
                     key={index}
-                    src={`http://localhost:8000${imageUrl}`}
+                    src={getImageUrl(imageUrl)}
                     alt={`Attachment ${index + 1}`}
                     className="max-w-xs max-h-64 object-cover rounded-lg border border-gray-600 shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
                     onClick={() => {

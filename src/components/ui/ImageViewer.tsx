@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 interface ImageViewerProps {
   isOpen: boolean;
@@ -301,7 +302,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
             onClick={handleOverlayClick}
           >
             <img
-              src={`http://localhost:8000${currentImage}`}
+              src={getImageUrl(currentImage)}
               alt={`Image ${currentIndex + 1}`}
               className="max-w-[90vw] max-h-[80vh] object-contain select-none"
               draggable={false}
@@ -334,7 +335,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                     }`}
                   >
                     <img
-                      src={`http://localhost:8000${image}`}
+                      src={getImageUrl(image)}
                       alt={`Thumbnail ${index + 1}`}
                       className={`w-16 h-16 object-cover transition-all duration-200 ${
                         index === currentIndex

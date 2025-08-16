@@ -5,6 +5,7 @@ import { Conversation } from '../../types/chat';
 import UserProfile from './UserProfile';
 import SidebarButton from './SidebarButton';
 import SearchModal from './SearchModal';
+import GalleryModal from './GalleryModal';
 
 interface ConversationSidebarProps {
   currentConversationId?: string;
@@ -28,6 +29,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [error, setError] = useState<string>('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
 
   useEffect(() => {
     loadConversations();
@@ -112,7 +114,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               <Search className="w-4 h-4" />
             </button>
             <button
-              onClick={() => console.log('Gallery clicked')}
+              onClick={() => setIsGalleryModalOpen(true)}
               className="w-full flex items-center justify-center h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200"
               title="Gallery"
             >
@@ -147,7 +149,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               <SidebarButton
                 icon={Image}
                 label="Gallery"
-                onClick={() => console.log('Gallery clicked')}
+                onClick={() => setIsGalleryModalOpen(true)}
               />
               <SidebarButton
                 icon={MessageCircle}
@@ -222,6 +224,13 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <SearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
+        onSelectConversation={onSelectConversation}
+      />
+
+      {/* Gallery Modal */}
+      <GalleryModal
+        isOpen={isGalleryModalOpen}
+        onClose={() => setIsGalleryModalOpen(false)}
         onSelectConversation={onSelectConversation}
       />
     </div>
