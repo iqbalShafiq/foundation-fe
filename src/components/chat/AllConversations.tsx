@@ -11,6 +11,7 @@ interface AllConversationsProps {
 const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversation }) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -25,7 +26,13 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
 
   const loadConversations = async () => {
     try {
-      setLoading(true);
+      // Only show full loading on initial load, use pagination loading for page changes
+      if (conversations.length === 0) {
+        setLoading(true);
+      } else {
+        setPaginationLoading(true);
+      }
+      
       const response = await apiService.getConversationsPaginated(currentPage, limit);
       setConversations(response.data);
       setTotalPages(response.pagination.total_pages);
@@ -38,6 +45,7 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
       console.error('Error loading conversations:', err);
     } finally {
       setLoading(false);
+      setPaginationLoading(false);
     }
   };
 
@@ -92,21 +100,26 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
   }
 
   return (
-    <div className="flex-1 bg-gray-800 flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-gray-900 to-gray-800 px-6 py-6 flex-shrink-0">
+    <div className="flex-1 bg-gray-800 flex flex-col relative">
+      {/* Header - Fixed to prevent flicker */}
+      <div className="bg-gradient-to-b from-gray-900 to-gray-800 px-6 py-6 flex-shrink-0 transition-all duration-200 ease-in-out">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
               <MessageCircle className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-100">All Conversations</h1>
           </div>
-          <p className="text-gray-400">
+          <p className="text-gray-400 transition-all duration-200">
             {totalCount} conversation{totalCount !== 1 ? 's' : ''} total
             {totalPages > 1 && (
               <span className="ml-2">
                 • Page {currentPage} of {totalPages}
+                {paginationLoading && (
+                  <span className="ml-2 text-blue-400">
+                    <span className="animate-pulse">Loading...</span>
+                  </span>
+                )}
               </span>
             )}
           </p>
@@ -127,7 +140,7 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
               </p>
             </div>
           ) : (
-            <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+            <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300 ${paginationLoading ? 'opacity-60' : 'opacity-100'}`}>
               {conversations.map((conversation) => (
                 <Card 
                   key={conversation.id}
@@ -182,11 +195,11 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
               variant="ghost"
               size="sm"
               onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={!hasPrev || loading}
+              disabled={!hasPrev || paginationLoading}
               icon={ChevronLeft}
               iconPosition="left"
               className={`transition-all duration-200 ${
-                !hasPrev || loading 
+                !hasPrev || paginationLoading 
                   ? 'opacity-40 cursor-not-allowed text-gray-500' 
                   : 'text-white hover:text-blue-400'
               }`}
@@ -212,7 +225,7 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    disabled={loading}
+                    disabled={paginationLoading}
                     className={`w-9 h-9 rounded-lg text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed ${
                       currentPage === pageNum
                         ? 'bg-blue-500 text-white shadow-md transform scale-105'
@@ -229,11 +242,11 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
               variant="ghost"
               size="sm"
               onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={!hasNext || loading}
+              disabled={!hasNext || paginationLoading}
               icon={ChevronRight}
               iconPosition="right"
               className={`transition-all duration-200 ${
-                !hasNext || loading 
+                !hasNext || paginationLoading 
                   ? 'opacity-40 cursor-not-allowed text-gray-500' 
                   : 'text-white hover:text-blue-400'
               }`}
