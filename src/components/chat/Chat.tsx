@@ -46,7 +46,14 @@ const Chat: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && currentConversationId) {
-        handleNewConversation();
+        // Check if there are any open modals first
+        const modals = document.querySelectorAll('[data-modal]');
+        
+        // Only handle ESC for new conversation if no modals are open
+        if (modals.length === 0) {
+          event.preventDefault();
+          handleNewConversation();
+        }
       }
     };
 

@@ -30,17 +30,26 @@ const Modal: React.FC<ModalProps> = ({
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (!isOpen) return;
+      
+      // Check if this is the top-most modal
+      const modals = document.querySelectorAll('[data-modal]');
+      const thisModal = document.querySelector('[data-modal="ui-modal"]');
+      
+      // If this modal exists and is the last (top-most) modal, handle ESC
+      if (thisModal && modals[modals.length - 1] === thisModal && e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
+      document.addEventListener("keydown", handleEscape, true); // Use capture phase for higher priority
     }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleEscape, true);
     };
   }, [isOpen, onClose]);
 
@@ -53,7 +62,7 @@ const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" data-modal="ui-modal">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/70 transition-opacity"

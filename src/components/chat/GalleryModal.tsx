@@ -27,6 +27,30 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
     }
   }, [isOpen]);
 
+  // Handle ESC key to close modal (only if this modal is open)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      // Check if this is the top-most modal by checking if there are other modals with higher z-index
+      const modals = document.querySelectorAll('[data-modal]');
+      const thisModal = document.querySelector('[data-modal="gallery"]');
+      
+      // If this modal exists and is the last (top-most) modal, handle ESC
+      if (thisModal && modals[modals.length - 1] === thisModal && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown, true); // Use capture phase for higher priority
+    }
+    
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, onClose]);
+
   const loadGallery = async (page: number) => {
     try {
       setLoading(true);
@@ -65,6 +89,13 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
     }
   };
 
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    // Only close if clicking on the overlay itself, not on any child elements
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -79,8 +110,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 transition-opacity flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-gray-700 overflow-hidden shadow-xl transform transition-all">
+    <div 
+      className="fixed inset-0 bg-black/70 transition-opacity flex items-center justify-center z-50 p-4"
+      onClick={handleOverlayClick}
+      data-modal="gallery"
+    >
+      <div 
+        className="bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-gray-700 overflow-hidden shadow-xl transform transition-all"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div>

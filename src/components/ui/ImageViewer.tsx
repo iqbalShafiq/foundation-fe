@@ -39,9 +39,18 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
       
+      // Check if this is the top-most modal
+      const modals = document.querySelectorAll('[data-modal]');
+      const thisModal = document.querySelector('[data-modal="image-viewer"]');
+      
       switch (e.key) {
         case 'Escape':
-          onClose();
+          // Only close if this is the top-most modal
+          if (thisModal && modals[modals.length - 1] === thisModal) {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }
           break;
         case 'ArrowLeft':
           goToPrevious();
@@ -59,8 +68,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true); // Use capture phase for higher priority
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, currentIndex]);
 
   // Handle visibility transitions
@@ -191,6 +200,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
       }`}
       style={{ background: 'rgba(0, 0, 0, 0.75)' }}
       onClick={handleOverlayClick}
+      data-modal="image-viewer"
     >
 
       {/* Main Image Container */}
