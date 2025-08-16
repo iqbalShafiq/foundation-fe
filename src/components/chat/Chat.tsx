@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { Bot } from 'lucide-react';
 import { ChatMessage as ChatMessageType, ModelType } from "../../types/chat";
 import { apiService } from "../../services/api";
 import { modelStorage } from "../../utils/modelStorage";
@@ -265,7 +266,7 @@ const Chat: React.FC = () => {
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="mb-4">
                     <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                      <span className="text-3xl">💬</span>
+                      <Bot className="w-10 h-10 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-100 mb-3">
                       Welcome to Foundation Chat
