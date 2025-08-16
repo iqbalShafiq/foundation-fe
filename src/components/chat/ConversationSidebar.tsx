@@ -94,98 +94,96 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         </div>
       </div>
 
-      {/* Content Area - takes remaining space */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Sidebar Buttons - always rendered */}
-        <div className={`px-2 space-y-0.5 ${isCollapsed ? 'pt-3' : 'pb-6'} transition-all duration-300`}>
-          <SidebarButton
-            icon={Plus}
-            label="New chat"
-            onClick={onNewConversation}
-            collapsed={isCollapsed}
-          />
-          <SidebarButton
-            icon={Search}
-            label="Search Chats"
-            onClick={() => setIsSearchModalOpen(true)}
-            collapsed={isCollapsed}
-          />
-          <SidebarButton
-            icon={Image}
-            label="Gallery"
-            onClick={() => setIsGalleryModalOpen(true)}
-            collapsed={isCollapsed}
-          />
-          <SidebarButton
-            icon={MessageCircle}
-            label="All Conversations"
-            onClick={onShowAllConversations}
-            isActive={currentView === 'all-conversations'}
-            collapsed={isCollapsed}
-          />
-        </div>
+      {/* Sidebar Buttons - Fixed at top */}
+      <div className={`px-2 space-y-0.5 ${isCollapsed ? 'pt-3' : 'pb-6'} transition-all duration-300`}>
+        <SidebarButton
+          icon={Plus}
+          label="New chat"
+          onClick={onNewConversation}
+          collapsed={isCollapsed}
+        />
+        <SidebarButton
+          icon={Search}
+          label="Search Chats"
+          onClick={() => setIsSearchModalOpen(true)}
+          collapsed={isCollapsed}
+        />
+        <SidebarButton
+          icon={Image}
+          label="Gallery"
+          onClick={() => setIsGalleryModalOpen(true)}
+          collapsed={isCollapsed}
+        />
+        <SidebarButton
+          icon={MessageCircle}
+          label="All Conversations"
+          onClick={onShowAllConversations}
+          isActive={currentView === 'all-conversations'}
+          collapsed={isCollapsed}
+        />
+      </div>
 
+      {/* Conversation History - Scrollable Area */}
+      <div className="flex-1 overflow-y-auto">
         {/* Conversations List - only show when not collapsed and not in All Conversations view */}
         {!isCollapsed && currentView !== 'all-conversations' && (
-              <>
-                {error && (
-                  <div className="mx-4 mb-4 p-3 text-red-400 text-sm bg-red-900/20 rounded-lg">
-                    {error}
-                  </div>
-                )}
+          <>
+            {error && (
+              <div className="mx-4 mt-4 mb-4 p-3 text-red-400 text-sm bg-red-900/20 rounded-lg">
+                {error}
+              </div>
+            )}
 
-                {conversations.length === 0 && !loading && !error ? (
-                  <div className="px-4 text-gray-400 text-center">
-                    <p className={`text-sm whitespace-nowrap transition-opacity duration-300 ${
-                      isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
-                    }`}>No conversations yet</p>
-                    <p className={`text-xs text-gray-500 mt-1 whitespace-nowrap transition-opacity duration-300 ${
-                      isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
-                    }`}>Start a new chat to begin</p>
-                  </div>
-                ) : (
-                  <div>
-                    {/* Conversations Label */}
-                    <div className="px-4 pb-2">
-                      <h3 className={`text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap transition-opacity duration-300 ${
-                        isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
-                      }`}>
-                        Conversations
-                      </h3>
-                    </div>
-                    
-                    {/* Conversations List */}
-                    <div className="px-2 space-y-1 pb-4">
-                      {conversations.map((conversation) => (
-                        <button
-                          key={conversation.id}
-                          onClick={() => onSelectConversation(conversation.id)}
-                          className={`group w-full text-left px-3 py-2 rounded-lg transition-all duration-200 hover:bg-gray-800 ${
-                            currentConversationId === conversation.id
-                              ? 'bg-gray-800 border-l-2 border-blue-500'
-                              : ''
-                          }`}
-                          title={`${conversation.title} (${conversation.model_type})`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className={`text-sm font-medium text-gray-200 truncate flex-1 whitespace-nowrap transition-opacity duration-300 ${
-                              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
-                            }`}>
-                              {truncateTitle(conversation.title)}
-                            </p>
-                            {/* Model shown on hover */}
-                            <span className={`opacity-0 group-hover:opacity-100 text-xs text-gray-400 ml-2 transition-opacity duration-200 flex-shrink-0 whitespace-nowrap ${
-                              isCollapsed ? 'opacity-0 pointer-events-none' : ''
-                            }`}>
-                              {conversation.model_type}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+            {conversations.length === 0 && !loading && !error ? (
+              <div className="px-4 py-6 text-gray-400 text-center">
+                <p className={`text-sm whitespace-nowrap transition-opacity duration-300 ${
+                  isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                }`}>No conversations yet</p>
+                <p className={`text-xs text-gray-500 mt-1 whitespace-nowrap transition-opacity duration-300 ${
+                  isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                }`}>Start a new chat to begin</p>
+              </div>
+            ) : (
+              <div>
+                {/* Conversations Label */}
+                <div className="px-4 pb-2">
+                  <h3 className={`text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap transition-opacity duration-300 ${
+                    isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                  }`}>
+                    Conversations
+                  </h3>
+                </div>
+                
+                {/* Conversations List - This is the scrollable area */}
+                <div className="px-2 space-y-1 pb-4">
+                  {conversations.map((conversation) => (
+                    <button
+                      key={conversation.id}
+                      onClick={() => onSelectConversation(conversation.id)}
+                      className={`group w-full text-left px-3 py-2 rounded-lg transition-all duration-200 hover:bg-gray-800 ${
+                        currentConversationId === conversation.id
+                          ? 'bg-gray-800 border-l-2 border-blue-500'
+                          : ''
+                      }`}
+                      title={`${conversation.title} (${conversation.model_type})`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className={`text-sm font-medium text-gray-200 truncate flex-1 whitespace-nowrap transition-opacity duration-300 ${
+                          isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                        }`}>
+                          {truncateTitle(conversation.title)}
+                        </p>
+                        {/* Model shown on hover */}
+                        <span className={`opacity-0 group-hover:opacity-100 text-xs text-gray-400 ml-2 transition-opacity duration-200 flex-shrink-0 whitespace-nowrap ${
+                          isCollapsed ? 'opacity-0 pointer-events-none' : ''
+                        }`}>
+                          {conversation.model_type}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}
