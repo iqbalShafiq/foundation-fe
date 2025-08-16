@@ -96,71 +96,37 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
       {/* Content Area - takes remaining space */}
       <div className="flex-1 overflow-y-auto">
-        {isCollapsed ? (
-          /* Collapsed state - show all icons */
-          <div className="px-2 pt-3 space-y-1">
-            <button
-              onClick={onNewConversation}
-              className="w-full flex items-center justify-center h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200"
-              title="New chat"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setIsSearchModalOpen(true)}
-              className="w-full flex items-center justify-center h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200"
-              title="Search Chats"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setIsGalleryModalOpen(true)}
-              className="w-full flex items-center justify-center h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200"
-              title="Gallery"
-            >
-              <Image className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onShowAllConversations}
-              className={`w-full flex items-center justify-center h-8 hover:bg-gray-700 rounded-lg transition-all duration-200 ${
-                currentView === 'all-conversations' 
-                  ? 'text-blue-400 bg-blue-900/30' 
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              title="All Conversations"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Sidebar Buttons */}
-            <div className="px-2 pb-6 space-y-0.5">
-              <SidebarButton
-                icon={Plus}
-                label="New chat"
-                onClick={onNewConversation}
-              />
-              <SidebarButton
-                icon={Search}
-                label="Search Chats"
-                onClick={() => setIsSearchModalOpen(true)}
-              />
-              <SidebarButton
-                icon={Image}
-                label="Gallery"
-                onClick={() => setIsGalleryModalOpen(true)}
-              />
-              <SidebarButton
-                icon={MessageCircle}
-                label="All Conversations"
-                onClick={onShowAllConversations}
-                isActive={currentView === 'all-conversations'}
-              />
-            </div>
+        {/* Sidebar Buttons - always rendered */}
+        <div className={`px-2 space-y-0.5 ${isCollapsed ? 'pt-3' : 'pb-6'} transition-all duration-300`}>
+          <SidebarButton
+            icon={Plus}
+            label="New chat"
+            onClick={onNewConversation}
+            collapsed={isCollapsed}
+          />
+          <SidebarButton
+            icon={Search}
+            label="Search Chats"
+            onClick={() => setIsSearchModalOpen(true)}
+            collapsed={isCollapsed}
+          />
+          <SidebarButton
+            icon={Image}
+            label="Gallery"
+            onClick={() => setIsGalleryModalOpen(true)}
+            collapsed={isCollapsed}
+          />
+          <SidebarButton
+            icon={MessageCircle}
+            label="All Conversations"
+            onClick={onShowAllConversations}
+            isActive={currentView === 'all-conversations'}
+            collapsed={isCollapsed}
+          />
+        </div>
 
-            {/* Conversations List - only show when not in All Conversations view */}
-            {currentView !== 'all-conversations' && (
+        {/* Conversations List - only show when not collapsed and not in All Conversations view */}
+        {!isCollapsed && currentView !== 'all-conversations' && (
               <>
                 {error && (
                   <div className="mx-4 mb-4 p-3 text-red-400 text-sm bg-red-900/20 rounded-lg">
@@ -170,14 +136,20 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
                 {conversations.length === 0 && !loading && !error ? (
                   <div className="px-4 text-gray-400 text-center">
-                    <p className="text-sm">No conversations yet</p>
-                    <p className="text-xs text-gray-500 mt-1">Start a new chat to begin</p>
+                    <p className={`text-sm whitespace-nowrap transition-opacity duration-300 ${
+                      isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                    }`}>No conversations yet</p>
+                    <p className={`text-xs text-gray-500 mt-1 whitespace-nowrap transition-opacity duration-300 ${
+                      isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                    }`}>Start a new chat to begin</p>
                   </div>
                 ) : (
                   <div>
                     {/* Conversations Label */}
                     <div className="px-4 pb-2">
-                      <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                      <h3 className={`text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap transition-opacity duration-300 ${
+                        isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                      }`}>
                         Conversations
                       </h3>
                     </div>
@@ -196,11 +168,15 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                           title={`${conversation.title} (${conversation.model_type})`}
                         >
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-gray-200 truncate flex-1">
+                            <p className={`text-sm font-medium text-gray-200 truncate flex-1 whitespace-nowrap transition-opacity duration-300 ${
+                              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                            }`}>
                               {truncateTitle(conversation.title)}
                             </p>
                             {/* Model shown on hover */}
-                            <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 ml-2 transition-opacity duration-200 flex-shrink-0">
+                            <span className={`opacity-0 group-hover:opacity-100 text-xs text-gray-400 ml-2 transition-opacity duration-200 flex-shrink-0 whitespace-nowrap ${
+                              isCollapsed ? 'opacity-0 pointer-events-none' : ''
+                            }`}>
                               {conversation.model_type}
                             </span>
                           </div>
