@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Check, X, Search, Eye, Download, ExternalLink, Upload, Loader } from 'lucide-react';
-import { Button, Input } from '../ui';
+import { FileText, Check, X, Search, Eye, Download, ExternalLink, Upload, Loader, Plus } from 'lucide-react';
+import { Button, Input, Modal, Alert } from '../ui';
 import { apiService } from '../../services/api';
 import { Document, DocumentCollection } from '../../types/document';
 import { openDocument, canViewInBrowser } from '../../utils/documentUrl';
@@ -280,7 +280,11 @@ export const DocumentSelector: React.FC<DocumentSelectorProps> = ({
 
       {/* Actions */}
       <div className="flex justify-between items-center space-x-3 mt-6">
-        <UploadSection onDocumentUploaded={handleDocumentUploaded} />
+        {activeTab === 'collections' ? (
+          <CreateCollectionSection onCollectionCreated={() => loadData()} />
+        ) : (
+          <UploadSection onDocumentUploaded={handleDocumentUploaded} />
+        )}
         <Button onClick={onClose} variant="secondary" size="sm">
           Done
         </Button>
@@ -383,5 +387,164 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onDocumentUploaded }) => 
         <span className="text-xs text-red-400 ml-2">{error}</span>
       )}
     </div>
+  );
+};
+
+interface CreateCollectionSectionProps {
+  onCollectionCreated: () => void;
+}
+
+const CreateCollectionSection: React.FC<CreateCollectionSectionProps> = ({ onCollectionCreated }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showModal) {
+      loadDocuments();
+    }
+  }, [showModal]);
+
+  const loadDocuments = async () => {
+    try {
+      const docsData = await apiService.getDocuments();
+      setDocuments(docsData.filter(doc => doc.processing_status === 'completed'));
+    } catch (error) {
+      console.error('Failed to load documents:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      await apiService.createCollection(
+        name.trim(),
+        description.trim() || undefined,
+        selectedDocuments
+      );
+
+      // Reset form
+      setName('');
+      setDescription('');
+      setSelectedDocuments([]);
+      setShowModal(false);
+      
+      // Notify parent to refresh collections
+      onCollectionCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create collection');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleDocument = (documentId: string) => {
+    if (selectedDocuments.includes(documentId)) {
+      setSelectedDocuments(selectedDocuments.filter(id => id !== documentId));
+    } else {
+      setSelectedDocuments([...selectedDocuments, documentId]);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        onClick={() => setShowModal(true)}
+        variant="outline"
+        size="sm"
+        className="flex items-center space-x-2"
+      >
+        <Plus className="h-4 w-4" />
+        <span>Create Collection</span>
+      </Button>
+
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Create Collection"
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <Alert variant="error" title="Error">
+              {error}
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <Input
+              label="Collection Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter collection name"
+              required
+            />
+
+            <Input
+              label="Description (Optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter collection description"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-3">
+              Select Documents ({selectedDocuments.length} selected)
+            </label>
+            
+            {documents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-8 w-8 mx-auto mb-2" />
+                <p>No documents available</p>
+              </div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto space-y-2 border border-gray-600 rounded-lg p-3">
+                {documents.map((document) => (
+                  <label
+                    key={document.id}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-700 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedDocuments.includes(document.id)}
+                      onChange={() => toggleDocument(document.id)}
+                      className="rounded border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                    <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-200 truncate">
+                        {document.original_filename}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {document.file_type.toUpperCase()} • {document.chunk_count} chunks
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
+            <Button onClick={() => setShowModal(false)} variant="secondary" disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={saving} disabled={!name.trim()}>
+              Create Collection
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 };
