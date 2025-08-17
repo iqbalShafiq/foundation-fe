@@ -51,14 +51,6 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      // Debug: Log document context being sent
-      console.log('🔍 Sending message with document context:', {
-        selectedDocuments,
-        selectedCollection,
-        hasDocuments: selectedDocuments.length > 0,
-        hasCollection: !!selectedCollection
-      });
-      
       onSendMessage(
         message, 
         selectedImages.length > 0 ? selectedImages : undefined,

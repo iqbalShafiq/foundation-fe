@@ -112,12 +112,10 @@ class ApiService {
     
     // Add document context parameters
     if (documentContexts && documentContexts.length > 0) {
-      console.log('📤 Adding document_contexts to FormData:', documentContexts);
       formData.append('document_contexts', JSON.stringify(documentContexts));
     }
     
     if (contextCollection) {
-      console.log('📤 Adding context_collection to FormData:', contextCollection);
       formData.append('context_collection', contextCollection);
     }
     

@@ -81,9 +81,6 @@ export const openDocument = async (
   }
 
   try {
-    // Show loading indicator
-    console.log('Loading document...');
-    
     // Use fetch with authentication headers
     const response = await fetch(fullUrl, {
       method: 'GET',

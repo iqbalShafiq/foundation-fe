@@ -184,7 +184,6 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                           alt={`Image from message ${image.message_id}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 relative z-10"
                           onLoad={(e) => {
-                            console.log('✅ Image loaded:', imageUrl);
                             // Hide loading skeleton
                             const loadingDiv = e.currentTarget.previousElementSibling as HTMLElement;
                             if (loadingDiv) loadingDiv.style.display = 'none';
