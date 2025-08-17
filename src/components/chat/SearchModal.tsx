@@ -175,7 +175,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
                                 <div className="mt-2">
                                   <DocumentContextIndicator 
                                     documentContext={chat.document_context} 
-                                    variant="compact" 
+                                    variant="compact"
+                                    selectedDocuments={[]}
                                   />
                                 </div>
                               )}

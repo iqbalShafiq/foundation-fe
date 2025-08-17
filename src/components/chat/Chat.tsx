@@ -279,6 +279,14 @@ const Chat: React.FC = () => {
     chatInputRef.current?.focus();
   };
 
+  const handleRemoveDocumentFromContext = (documentId: string) => {
+    // Remove document from current context
+    setSelectedDocuments(prev => prev.filter(id => id !== documentId));
+    
+    // Focus input
+    chatInputRef.current?.focus();
+  };
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
@@ -331,6 +339,8 @@ const Chat: React.FC = () => {
                         message={message} 
                         conversationImages={allImages}
                         onAddDocumentToContext={handleAddDocumentToContext}
+                        onRemoveDocumentFromContext={handleRemoveDocumentFromContext}
+                        selectedDocuments={selectedDocuments}
                       />
                     ));
                   })()}

@@ -14,9 +14,11 @@ interface ChatMessageProps {
   message: ChatMessageType;
   conversationImages?: string[];
   onAddDocumentToContext?: (documentId: string) => void;
+  onRemoveDocumentFromContext?: (documentId: string) => void;
+  selectedDocuments?: string[];
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext, onRemoveDocumentFromContext, selectedDocuments = [] }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [userFeedback, setUserFeedback] = useState<FeedbackType | null>(null);
@@ -230,6 +232,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
             documentContext={message.documentContext} 
             variant="full"
             onAddToContext={onAddDocumentToContext}
+            onRemoveFromContext={onRemoveDocumentFromContext}
+            selectedDocuments={selectedDocuments}
           />
         )}
 
