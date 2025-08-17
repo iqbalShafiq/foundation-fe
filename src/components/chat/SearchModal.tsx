@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, X, MessageCircle, User, Bot } from 'lucide-react';
 import { Modal, Input } from '../ui';
+import { DocumentContextIndicator } from './DocumentContextIndicator';
 import { apiService } from '../../services/api';
 import { Conversation } from '../../types/chat';
 import { formatDistanceToNow } from '../../utils/dateUtils';
@@ -169,6 +170,15 @@ const SearchModal: React.FC<SearchModalProps> = ({
                               <p className="text-sm text-gray-200 leading-relaxed">
                                 {truncateContent(chat.content)}
                               </p>
+                              {/* Document Context Indicator */}
+                              {chat.document_context && (
+                                <div className="mt-2">
+                                  <DocumentContextIndicator 
+                                    documentContext={chat.document_context} 
+                                    variant="compact" 
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}

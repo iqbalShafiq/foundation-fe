@@ -19,6 +19,7 @@ export type ChatMessage = {
   messageId?: number; // Backend message ID for feedback
   imageUrls?: string[]; // URLs of images attached to this message
   contextSources?: ContextSource[]; // Document sources used for this response
+  documentContext?: DocumentContext | null; // Document context information
 };
 
 export type StreamChunk = {
@@ -46,10 +47,23 @@ export type Conversation = {
   related_chats?: RelatedChat[];
 };
 
+export type DocumentContext = {
+  collection_id: string;
+  documents: {
+    document_id: string;
+    title: string;
+    url: string | null;
+    file_extension: string;
+    document_url?: string | null;
+  }[];
+  context_chunks_count: number;
+};
+
 export type RelatedChat = {
   id: number;
   role: 'user' | 'assistant';
   content: string;
+  document_context?: DocumentContext | null;
   created_at: string;
 };
 
@@ -62,6 +76,7 @@ export type Message = {
   role: 'user' | 'assistant';
   content: string;
   image_urls?: string[];
+  document_context?: DocumentContext | null;
   created_at: string;
 };
 

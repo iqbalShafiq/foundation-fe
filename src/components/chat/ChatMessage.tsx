@@ -5,6 +5,7 @@ import rehypeHighlight from 'rehype-highlight';
 import { ChatMessage as ChatMessageType, FeedbackType } from '../../types/chat';
 import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, ExternalLink } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
+import { DocumentContextIndicator } from './DocumentContextIndicator';
 import { ImageViewer } from '../ui';
 import { apiService } from '../../services/api';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -12,9 +13,10 @@ import { getImageUrl } from '../../utils/imageUrl';
 interface ChatMessageProps {
   message: ChatMessageType;
   conversationImages?: string[];
+  onAddDocumentToContext?: (documentId: string) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [] }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [userFeedback, setUserFeedback] = useState<FeedbackType | null>(null);
@@ -221,6 +223,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
             </ReactMarkdown>
           </div>
         </div>
+
+        {/* Document Context Indicator */}
+        {message.documentContext && (
+          <DocumentContextIndicator 
+            documentContext={message.documentContext} 
+            variant="full"
+            onAddToContext={onAddDocumentToContext}
+          />
+        )}
 
         {/* Context Sources */}
         {!message.isUser && message.contextSources && message.contextSources.length > 0 && (

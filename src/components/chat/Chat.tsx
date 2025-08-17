@@ -25,6 +25,8 @@ const Chat: React.FC = () => {
   const [currentStreamContent, setCurrentStreamContent] = useState("");
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
 
@@ -49,6 +51,9 @@ const Chat: React.FC = () => {
       setMessages([]);
       setCurrentConversationTitle("");
       setCurrentStreamContent("");
+      // Reset document context for new conversation
+      setSelectedDocuments([]);
+      setSelectedCollection(undefined);
     }
   }, [conversationId]);
 
@@ -94,6 +99,10 @@ const Chat: React.FC = () => {
   const loadConversation = async (conversationId: string) => {
     setCurrentStreamContent("");
     
+    // Reset document context when loading existing conversation
+    setSelectedDocuments([]);
+    setSelectedCollection(undefined);
+    
     try {
       // Load conversation details with message history
       const conversationDetail = await apiService.getConversationDetail(conversationId);
@@ -110,6 +119,7 @@ const Chat: React.FC = () => {
         model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
         messageId: msg.role === 'assistant' ? msg.id : undefined,
         imageUrls: msg.image_urls,
+        documentContext: msg.document_context,
       }));
       
       setMessages(loadedMessages);
@@ -259,6 +269,16 @@ const Chat: React.FC = () => {
     modelStorage.save(model);
   };
 
+  const handleAddDocumentToContext = (documentId: string) => {
+    // Add document to current context if not already selected
+    if (!selectedDocuments.includes(documentId)) {
+      setSelectedDocuments(prev => [...prev, documentId]);
+    }
+    
+    // Focus input
+    chatInputRef.current?.focus();
+  };
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
@@ -310,6 +330,7 @@ const Chat: React.FC = () => {
                         key={message.id} 
                         message={message} 
                         conversationImages={allImages}
+                        onAddDocumentToContext={handleAddDocumentToContext}
                       />
                     ));
                   })()}
@@ -422,6 +443,10 @@ const Chat: React.FC = () => {
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
             disableModelSelection={currentConversationId !== undefined}
+            externalSelectedDocuments={selectedDocuments}
+            externalSelectedCollection={selectedCollection}
+            onExternalDocumentsChange={setSelectedDocuments}
+            onExternalCollectionChange={setSelectedCollection}
           />
         </div>
         </div>

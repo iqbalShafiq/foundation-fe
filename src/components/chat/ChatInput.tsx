@@ -11,6 +11,10 @@ interface ChatInputProps {
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
   disableModelSelection?: boolean;
+  externalSelectedDocuments?: string[];
+  externalSelectedCollection?: string;
+  onExternalDocumentsChange?: (documents: string[]) => void;
+  onExternalCollectionChange?: (collection?: string) => void;
 }
 
 export interface ChatInputRef {
@@ -22,16 +26,24 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   disabled = false, 
   selectedModel, 
   onModelChange,
-  disableModelSelection = false
+  disableModelSelection = false,
+  externalSelectedDocuments,
+  externalSelectedCollection,
+  onExternalDocumentsChange,
+  onExternalCollectionChange
 }, ref) => {
   const [message, setMessage] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
-  const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
+  const [internalSelectedDocuments, setInternalSelectedDocuments] = useState<string[]>([]);
+  const [internalSelectedCollection, setInternalSelectedCollection] = useState<string | undefined>();
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use external state if provided, otherwise use internal state
+  const selectedDocuments = externalSelectedDocuments ?? internalSelectedDocuments;
+  const selectedCollection = externalSelectedCollection ?? internalSelectedCollection;
 
   // Focus management
   useImperativeHandle(ref, () => ({
@@ -47,6 +59,34 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     }, 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Check for pending document context from localStorage (only for internal state)
+  useEffect(() => {
+    if (!externalSelectedDocuments) {
+      const pendingDocId = localStorage.getItem('pendingDocumentContext');
+      if (pendingDocId) {
+        setInternalSelectedDocuments([pendingDocId]);
+        localStorage.removeItem('pendingDocumentContext');
+      }
+    }
+  }, [externalSelectedDocuments]);
+
+  // Handlers for document and collection changes
+  const handleDocumentsChange = (documents: string[]) => {
+    if (onExternalDocumentsChange) {
+      onExternalDocumentsChange(documents);
+    } else {
+      setInternalSelectedDocuments(documents);
+    }
+  };
+
+  const handleCollectionChange = (collection?: string) => {
+    if (onExternalCollectionChange) {
+      onExternalCollectionChange(collection);
+    } else {
+      setInternalSelectedCollection(collection);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
@@ -261,8 +301,8 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         <DocumentSelector
           selectedDocuments={selectedDocuments}
           selectedCollection={selectedCollection}
-          onDocumentsChange={setSelectedDocuments}
-          onCollectionChange={setSelectedCollection}
+          onDocumentsChange={handleDocumentsChange}
+          onCollectionChange={handleCollectionChange}
           onClose={() => setIsDocumentModalOpen(false)}
         />
       </Modal>
