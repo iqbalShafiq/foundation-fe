@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { Conversation } from '../../types/chat';
+import { getSidebarCollapsedState, setSidebarCollapsedState } from '../../utils/sidebarStorage';
 import UserProfile from './UserProfile';
 import SidebarButton from './SidebarButton';
 import SearchModal from './SearchModal';
@@ -29,7 +30,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => getSidebarCollapsedState());
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
 
@@ -83,7 +84,11 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             </h2>
           )}
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => {
+              const newCollapsedState = !isCollapsed;
+              setIsCollapsed(newCollapsedState);
+              setSidebarCollapsedState(newCollapsedState);
+            }}
             className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 flex-shrink-0"
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
