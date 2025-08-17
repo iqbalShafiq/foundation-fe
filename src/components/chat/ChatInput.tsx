@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Send, ChevronDown, Image as ImageIcon, X } from 'lucide-react';
+import { Send, ChevronDown, Image as ImageIcon, X, FileText } from 'lucide-react';
 import { ModelType } from '../../types/chat';
 import { Modal } from '../ui';
 import ModelSelector from './ModelSelector';
+import { DocumentSelector } from './DocumentSelector';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, images?: File[]) => void;
+  onSendMessage: (message: string, images?: File[], documentContexts?: string[], contextCollection?: string) => void;
   disabled?: boolean;
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
@@ -25,7 +26,10 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 }, ref) => {
   const [message, setMessage] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,9 +51,23 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      onSendMessage(message, selectedImages.length > 0 ? selectedImages : undefined); // Don't trim to preserve line breaks
+      // Debug: Log document context being sent
+      console.log('🔍 Sending message with document context:', {
+        selectedDocuments,
+        selectedCollection,
+        hasDocuments: selectedDocuments.length > 0,
+        hasCollection: !!selectedCollection
+      });
+      
+      onSendMessage(
+        message, 
+        selectedImages.length > 0 ? selectedImages : undefined,
+        selectedDocuments.length > 0 ? selectedDocuments : undefined,
+        selectedCollection
+      );
       setMessage('');
       setSelectedImages([]);
+      // Keep document selection for follow-up questions
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -157,6 +175,34 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                 >
                   <ImageIcon className="h-4 w-4" />
                 </button>
+
+                {/* Document Context Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsDocumentModalOpen(true)}
+                    disabled={disabled}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${
+                      selectedDocuments.length > 0 || selectedCollection
+                        ? 'bg-blue-600/50 text-blue-300 hover:bg-blue-600/70'
+                        : 'bg-gray-600/50 text-gray-300 hover:bg-gray-600/70'
+                    }`}
+                    title={
+                      selectedCollection 
+                        ? `Using collection context`
+                        : selectedDocuments.length > 0 
+                          ? `${selectedDocuments.length} document${selectedDocuments.length !== 1 ? 's' : ''} selected`
+                          : 'Add document context'
+                    }
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                  {(selectedDocuments.length > 0 || selectedCollection) && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-xs text-white flex items-center justify-center font-medium">
+                      {selectedCollection ? '!' : selectedDocuments.length}
+                    </span>
+                  )}
+                </div>
                 
                 {/* Model Selector Button */}
                 <button
@@ -211,6 +257,21 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
           selectedModel={selectedModel}
           onModelChange={onModelChange}
           onClose={() => setIsModelModalOpen(false)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isDocumentModalOpen}
+        onClose={() => setIsDocumentModalOpen(false)}
+        title="Document Context"
+        size="lg"
+      >
+        <DocumentSelector
+          selectedDocuments={selectedDocuments}
+          selectedCollection={selectedCollection}
+          onDocumentsChange={setSelectedDocuments}
+          onCollectionChange={setSelectedCollection}
+          onClose={() => setIsDocumentModalOpen(false)}
         />
       </Modal>
     </>

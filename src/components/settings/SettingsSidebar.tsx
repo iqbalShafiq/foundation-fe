@@ -1,25 +1,26 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Settings as SettingsIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 interface SettingsSidebarProps {
   activeSection: string;
-  onSectionChange: (section: string) => void;
 }
 
-const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection, onSectionChange }) => {
+const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection }) => {
   const navigate = useNavigate();
 
   const menuItems = [
     {
       id: 'account',
       label: 'Account Information',
-      icon: User
+      icon: User,
+      href: '/settings/account'
     },
     {
       id: 'preferences',
       label: 'Preferences',
-      icon: SettingsIcon
+      icon: SettingsIcon,
+      href: '/settings/preferences'
     }
   ];
 
@@ -49,9 +50,9 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection, onSect
             const isActive = activeSection === item.id;
 
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => onSectionChange(item.id)}
+                to={item.href}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 text-left ${
                   isActive
                     ? 'bg-gray-800 border-l-2 border-blue-500 text-gray-200'
@@ -62,7 +63,7 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection, onSect
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">{item.label}</div>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </nav>

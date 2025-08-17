@@ -3,6 +3,13 @@ import { LoginRequest, RegisterRequest, AuthResponse, User } from '../types/auth
 import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse } from '../types/chat';
 import { UserPreferences, UserPreferencesUpdate } from '../types/preferences';
 import { GalleryResponse } from '../types/gallery';
+import { 
+  Document, 
+  DocumentCollection, 
+  DocumentUploadResponse, 
+  DocumentSearchRequest, 
+  DocumentSearchResponse 
+} from '../types/document';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -84,7 +91,16 @@ class ApiService {
     return response.data;
   }
 
-  async* streamChat(message: string, model: ModelType = 'Standard', conversationId?: string, images?: File[]) {
+  async* streamChat(
+    message: string, 
+    model: ModelType = 'Standard', 
+    conversationId?: string, 
+    images?: File[],
+    documentContexts?: string[],
+    contextCollection?: string,
+    maxContextChunks?: number,
+    contextRelevanceThreshold?: number
+  ) {
     // Create FormData for multipart form support
     const formData = new FormData();
     formData.append('message', message);
@@ -92,6 +108,25 @@ class ApiService {
     
     if (conversationId) {
       formData.append('conversation_id', conversationId);
+    }
+    
+    // Add document context parameters
+    if (documentContexts && documentContexts.length > 0) {
+      console.log('📤 Adding document_contexts to FormData:', documentContexts);
+      formData.append('document_contexts', JSON.stringify(documentContexts));
+    }
+    
+    if (contextCollection) {
+      console.log('📤 Adding context_collection to FormData:', contextCollection);
+      formData.append('context_collection', contextCollection);
+    }
+    
+    if (maxContextChunks !== undefined) {
+      formData.append('max_context_chunks', maxContextChunks.toString());
+    }
+    
+    if (contextRelevanceThreshold !== undefined) {
+      formData.append('context_relevance_threshold', contextRelevanceThreshold.toString());
     }
     
     // Add images if provided
@@ -187,6 +222,72 @@ class ApiService {
   async getAllGallery(page: number = 1, limit: number = 20): Promise<GalleryResponse> {
     const response = await this.api.get<GalleryResponse>(`/gallery/all?page=${page}&limit=${limit}`);
     return response.data;
+  }
+
+  // Document management methods
+  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await this.api.post<DocumentUploadResponse>('/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async getDocuments(): Promise<Document[]> {
+    const response = await this.api.get<Document[]>('/documents');
+    return response.data;
+  }
+
+  async getDocument(documentId: string): Promise<Document> {
+    const response = await this.api.get<Document>(`/documents/${documentId}`);
+    return response.data;
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.api.delete(`/documents/${documentId}`);
+  }
+
+  async reprocessDocument(documentId: string): Promise<Document> {
+    const response = await this.api.post<Document>(`/documents/${documentId}/reprocess`);
+    return response.data;
+  }
+
+  async searchDocuments(request: DocumentSearchRequest): Promise<DocumentSearchResponse> {
+    const response = await this.api.post<DocumentSearchResponse>('/documents/search', request);
+    return response.data;
+  }
+
+  // Document collections methods
+  async createCollection(name: string, description?: string, documentIds?: string[]): Promise<DocumentCollection> {
+    const response = await this.api.post<DocumentCollection>('/documents/collections', {
+      name,
+      description,
+      document_ids: documentIds || [],
+    });
+    return response.data;
+  }
+
+  async getCollections(): Promise<DocumentCollection[]> {
+    const response = await this.api.get<DocumentCollection[]>('/documents/collections');
+    return response.data;
+  }
+
+  async getCollection(collectionId: string): Promise<DocumentCollection> {
+    const response = await this.api.get<DocumentCollection>(`/documents/collections/${collectionId}`);
+    return response.data;
+  }
+
+  async updateCollection(collectionId: string, updates: Partial<DocumentCollection>): Promise<DocumentCollection> {
+    const response = await this.api.put<DocumentCollection>(`/documents/collections/${collectionId}`, updates);
+    return response.data;
+  }
+
+  async deleteCollection(collectionId: string): Promise<void> {
+    await this.api.delete(`/documents/collections/${collectionId}`);
   }
 }
 

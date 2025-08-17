@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -14,18 +15,22 @@ import ConversationSidebar from "./ConversationSidebar";
 import AllConversations from "./AllConversations";
 
 const Chat: React.FC = () => {
+  const { id: conversationId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelType>(() => modelStorage.load("Standard"));
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState("");
-  const [currentConversationId, setCurrentConversationId] = useState<
-    string | undefined
-  >(undefined);
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
-  const [currentView, setCurrentView] = useState<'chat' | 'all-conversations'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
+
+  // Determine current view based on URL
+  const currentView = location.pathname === '/conversations' ? 'all-conversations' : 'chat';
+  const currentConversationId = conversationId;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,6 +39,18 @@ const Chat: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentStreamContent]);
+
+  // Load conversation when conversationId changes from URL
+  useEffect(() => {
+    if (conversationId) {
+      loadConversation(conversationId);
+    } else {
+      // Clear messages for new conversation
+      setMessages([]);
+      setCurrentConversationTitle("");
+      setCurrentStreamContent("");
+    }
+  }, [conversationId]);
 
   // Ensure input is focused when Chat component first mounts
   useEffect(() => {
@@ -74,7 +91,46 @@ const Chat: React.FC = () => {
     return content.replace(/(\d+\.\s.*?)\n\n/g, '$1\n');
   };
 
-  const handleSendMessage = async (content: string, images?: File[]) => {
+  const loadConversation = async (conversationId: string) => {
+    setCurrentStreamContent("");
+    
+    try {
+      // Load conversation details with message history
+      const conversationDetail = await apiService.getConversationDetail(conversationId);
+      
+      // Set conversation title
+      setCurrentConversationTitle(conversationDetail.title);
+      
+      // Convert backend messages to frontend format
+      const loadedMessages: ChatMessageType[] = conversationDetail.messages.map((msg) => ({
+        id: msg.id.toString(),
+        content: msg.content,
+        isUser: msg.role === 'user',
+        timestamp: new Date(msg.created_at),
+        model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
+        messageId: msg.role === 'assistant' ? msg.id : undefined,
+        imageUrls: msg.image_urls,
+      }));
+      
+      setMessages(loadedMessages);
+      
+      // Focus input after loading conversation
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      // Clear messages on error
+      setMessages([]);
+      
+      // Focus input even on error
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
+    }
+  };
+
+  const handleSendMessage = async (content: string, images?: File[], documentContexts?: string[], contextCollection?: string) => {
     const userMessage: ChatMessageType = {
       id: generateMessageId(),
       content,
@@ -103,7 +159,9 @@ const Chat: React.FC = () => {
         content,
         selectedModel,
         currentConversationId,
-        images
+        images,
+        documentContexts,
+        contextCollection
       )) {
         if (chunk.error) {
           throw new Error(chunk.error);
@@ -116,11 +174,18 @@ const Chat: React.FC = () => {
 
         if (chunk.conversation_id && !receivedConversationId) {
           receivedConversationId = chunk.conversation_id;
-          setCurrentConversationId(receivedConversationId);
+          // Navigate to the new conversation URL if this is a new conversation
+          if (wasNewConversation) {
+            navigate(`/conversation/${receivedConversationId}`, { replace: true });
+          }
         }
 
         if (chunk.done) {
           assistantMessage.content = fullContent;
+          // Store context sources if available
+          if (chunk.context_sources) {
+            (assistantMessage as any).contextSources = chunk.context_sources;
+          }
           setMessages((prev) => [...prev, assistantMessage]);
           setCurrentStreamContent("");
           
@@ -177,61 +242,16 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleSelectConversation = async (conversationId: string) => {
-    setCurrentConversationId(conversationId);
-    setCurrentStreamContent("");
-    setCurrentView('chat'); // Switch to chat view when selecting a conversation
-    
-    try {
-      // Load conversation details with message history
-      const conversationDetail = await apiService.getConversationDetail(conversationId);
-      
-      // Set conversation title
-      setCurrentConversationTitle(conversationDetail.title);
-      
-      // Convert backend messages to frontend format
-      const loadedMessages: ChatMessageType[] = conversationDetail.messages.map((msg) => ({
-        id: msg.id.toString(),
-        content: msg.content,
-        isUser: msg.role === 'user',
-        timestamp: new Date(msg.created_at),
-        model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
-        messageId: msg.role === 'assistant' ? msg.id : undefined, // Add messageId for AI messages
-        imageUrls: msg.image_urls,
-      }));
-      
-      setMessages(loadedMessages);
-      
-      // Focus input after loading conversation
-      setTimeout(() => {
-        chatInputRef.current?.focus();
-      }, 100);
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-      // Clear messages on error
-      setMessages([]);
-      
-      // Focus input even on error
-      setTimeout(() => {
-        chatInputRef.current?.focus();
-      }, 100);
-    }
+  const handleSelectConversation = (conversationId: string) => {
+    navigate(`/conversation/${conversationId}`);
   };
 
   const handleNewConversation = () => {
-    setCurrentConversationId(undefined);
-    setCurrentConversationTitle("");
-    setMessages([]);
-    setCurrentStreamContent("");
-    setCurrentView('chat');
-    
-    setTimeout(() => {
-      chatInputRef.current?.focus();
-    }, 50);
+    navigate('/');
   };
 
   const handleShowAllConversations = () => {
-    setCurrentView('all-conversations');
+    navigate('/conversations');
   };
 
   const handleModelChange = (model: ModelType) => {

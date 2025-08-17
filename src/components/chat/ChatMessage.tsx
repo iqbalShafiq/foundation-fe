@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { ChatMessage as ChatMessageType, FeedbackType } from '../../types/chat';
-import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, ExternalLink } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 import { ImageViewer } from '../ui';
 import { apiService } from '../../services/api';
@@ -221,6 +221,30 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
             </ReactMarkdown>
           </div>
         </div>
+
+        {/* Context Sources */}
+        {!message.isUser && message.contextSources && message.contextSources.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-600">
+            <div className="text-xs text-gray-400 mb-2">Sources:</div>
+            <div className="space-y-1">
+              {message.contextSources.map((source, index) => (
+                <div
+                  key={index}
+                  className="flex items-center space-x-2 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  <FileText className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate flex-1">{source.document_name}</span>
+                  {source.page_number && (
+                    <span className="text-gray-500">p.{source.page_number}</span>
+                  )}
+                  <span className="text-gray-500">
+                    {Math.round(source.relevance_score * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className={`flex items-center mt-2 text-xs text-gray-400 ${
           message.isUser ? 'justify-end' : 'justify-start'

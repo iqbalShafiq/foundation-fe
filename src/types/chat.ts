@@ -4,6 +4,10 @@ export type ChatRequest = {
   message: string;
   model: ModelType;
   conversation_id?: string;
+  document_contexts?: string[];
+  context_collection?: string;
+  max_context_chunks?: number;
+  context_relevance_threshold?: number;
 };
 
 export type ChatMessage = {
@@ -14,6 +18,7 @@ export type ChatMessage = {
   model?: ModelType;
   messageId?: number; // Backend message ID for feedback
   imageUrls?: string[]; // URLs of images attached to this message
+  contextSources?: ContextSource[]; // Document sources used for this response
 };
 
 export type StreamChunk = {
@@ -21,6 +26,14 @@ export type StreamChunk = {
   done: boolean;
   error?: string;
   conversation_id?: string;
+  context_sources?: ContextSource[];
+};
+
+export type ContextSource = {
+  document_id: string;
+  document_name: string;
+  page_number?: number;
+  relevance_score: number;
 };
 
 export type Conversation = {

@@ -1,10 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SettingsSidebar from './SettingsSidebar';
 import AccountInformation from './AccountInformation';
 import PreferencesSection from './PreferencesSection';
 
 const Settings: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<string>('account');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Determine active section from URL
+  const getActiveSectionFromPath = (pathname: string): string => {
+    if (pathname === '/settings/account') return 'account';
+    if (pathname === '/settings/preferences') return 'preferences';
+    return 'account'; // default
+  };
+
+  const activeSection = getActiveSectionFromPath(location.pathname);
+
+  // Redirect /settings to /settings/account by default
+  useEffect(() => {
+    if (location.pathname === '/settings') {
+      navigate('/settings/account', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -21,8 +39,7 @@ const Settings: React.FC = () => {
     <div className="h-screen bg-gray-900 flex">
       {/* Sidebar */}
       <SettingsSidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection} 
+        activeSection={activeSection}
       />
       
       {/* Main Content */}

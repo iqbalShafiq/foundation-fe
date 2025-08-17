@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MessageCircle, Clock, Bot, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { Conversation } from '../../types/chat';
@@ -142,45 +143,49 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
           ) : (
             <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300 ${paginationLoading ? 'opacity-60' : 'opacity-100'}`}>
               {conversations.map((conversation) => (
-                <Card 
+                <Link
                   key={conversation.id}
-                  className="bg-gray-700 border-gray-600 hover:bg-gray-600 transition-all duration-200 hover:border-gray-500 cursor-pointer"
-                  padding="none"
-                  onClick={() => onSelectConversation(conversation.id)}
+                  to={`/conversation/${conversation.id}`}
+                  className="block"
                 >
-                  <div className="p-4">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        {getModelIcon(conversation.model_type)}
-                        <span className="text-xs font-medium text-blue-400 uppercase tracking-wide">
-                          {conversation.model_type}
-                        </span>
+                  <Card 
+                    className="bg-gray-700 border-gray-600 hover:bg-gray-600 transition-all duration-200 hover:border-gray-500 cursor-pointer"
+                    padding="none"
+                  >
+                    <div className="p-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          {getModelIcon(conversation.model_type)}
+                          <span className="text-xs font-medium text-blue-400 uppercase tracking-wide">
+                            {conversation.model_type}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-gray-400 text-xs flex-shrink-0 ml-2">
+                          <Clock className="w-3 h-3" />
+                          <span>{formatDate(conversation.updated_at)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-1 text-gray-400 text-xs flex-shrink-0 ml-2">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatDate(conversation.updated_at)}</span>
+
+                      {/* Title */}
+                      <h3 className="text-gray-100 font-medium mb-3 leading-5 overflow-hidden" style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        minHeight: '2.5rem', // Force 2 lines height (2 * line-height + small buffer)
+                        height: '2.5rem'
+                      }}>
+                        {conversation.title}
+                      </h3>
+
+                      {/* Stats */}
+                      <div className="flex items-center text-xs text-gray-400">
+                        <MessageCircle className="w-3 h-3 mr-1" />
+                        <span>{conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
-
-                    {/* Title */}
-                    <h3 className="text-gray-100 font-medium mb-3 leading-5 overflow-hidden" style={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      minHeight: '2.5rem', // Force 2 lines height (2 * line-height + small buffer)
-                      height: '2.5rem'
-                    }}>
-                      {conversation.title}
-                    </h3>
-
-                    {/* Stats */}
-                    <div className="flex items-center text-xs text-gray-400">
-                      <MessageCircle className="w-3 h-3 mr-1" />
-                      <span>{conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}
