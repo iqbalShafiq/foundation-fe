@@ -27,8 +27,11 @@ const Chat: React.FC = () => {
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
+  const [preservedContext, setPreservedContext] = useState<{documents: string[], collection?: string} | null>(null);
+  const [isNewConversationNavigation, setIsNewConversationNavigation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
+  const previousConversationId = useRef<string | undefined>(conversationId);
 
   // Determine current view based on URL
   const currentView = location.pathname === '/conversations' ? 'all-conversations' : 'chat';
@@ -44,18 +47,48 @@ const Chat: React.FC = () => {
 
   // Load conversation when conversationId changes from URL
   useEffect(() => {
+    const isConversationSwitch = previousConversationId.current !== conversationId;
+    previousConversationId.current = conversationId;
+    
     if (conversationId) {
-      loadConversation(conversationId);
+      // Skip loading if this is a new conversation navigation (to prevent interrupting stream)
+      if (isNewConversationNavigation) {
+        return;
+      }
+      
+      // If we're switching conversations (not during streaming), load immediately
+      if (isConversationSwitch && !isStreaming) {
+        loadConversation(conversationId);
+      }
+      // If we're streaming but this is a different conversation, still load it (user clicked another conversation)
+      else if (isConversationSwitch && isStreaming) {
+        // Stop any ongoing stream and load the new conversation
+        setIsStreaming(false);
+        setCurrentStreamContent("");
+        loadConversation(conversationId);
+      }
     } else {
-      // Clear messages for new conversation
-      setMessages([]);
-      setCurrentConversationTitle("");
-      setCurrentStreamContent("");
-      // Reset document context for new conversation
-      setSelectedDocuments([]);
-      setSelectedCollection(undefined);
+      // Only clear state if we're not streaming (to prevent interrupting new conversation flow)
+      if (!isStreaming) {
+        setMessages([]);
+        setCurrentConversationTitle("");
+        setCurrentStreamContent("");
+        setSelectedDocuments([]);
+        setSelectedCollection(undefined);
+      }
     }
-  }, [conversationId]);
+  }, [conversationId, isNewConversationNavigation]);
+
+  // Load conversation after streaming completes for new conversations
+  useEffect(() => {
+    if (conversationId && !isStreaming && messages.length > 0) {
+      // Check if we need to reload the conversation to get proper message IDs
+      const hasMessageWithoutId = messages.some(msg => !msg.isUser && !msg.messageId);
+      if (hasMessageWithoutId) {
+        loadConversation(conversationId);
+      }
+    }
+  }, [conversationId, isStreaming, messages]);
 
   // Ensure input is focused when Chat component first mounts
   useEffect(() => {
@@ -99,9 +132,12 @@ const Chat: React.FC = () => {
   const loadConversation = async (conversationId: string) => {
     setCurrentStreamContent("");
     
-    // Reset document context when loading existing conversation
-    setSelectedDocuments([]);
-    setSelectedCollection(undefined);
+    // Only reset document context when loading existing conversation if we're not streaming
+    // This prevents context loss during new conversation navigation
+    if (!isStreaming) {
+      setSelectedDocuments([]);
+      setSelectedCollection(undefined);
+    }
     
     try {
       // Load conversation details with message history
@@ -148,9 +184,23 @@ const Chat: React.FC = () => {
       timestamp: new Date(),
     };
 
+    // Add user message first
     setMessages((prev) => [...prev, userMessage]);
+    
+    // Set streaming state to show thinking indicator
     setIsStreaming(true);
     setCurrentStreamContent("");
+
+    // Preserve document context for new conversations
+    if (!currentConversationId && (documentContexts?.length || contextCollection)) {
+      setPreservedContext({
+        documents: documentContexts || [],
+        collection: contextCollection
+      });
+    }
+
+    // Give UI time to render user message and thinking indicator before starting stream
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       const assistantMessage: ChatMessageType = {
@@ -184,9 +234,18 @@ const Chat: React.FC = () => {
 
         if (chunk.conversation_id && !receivedConversationId) {
           receivedConversationId = chunk.conversation_id;
-          // Navigate to the new conversation URL if this is a new conversation
+          // Navigate smoothly without interrupting current state
           if (wasNewConversation) {
-            navigate(`/conversation/${receivedConversationId}`, { replace: true });
+            // Mark this as new conversation navigation to prevent reloading
+            setIsNewConversationNavigation(true);
+            // Use setTimeout to ensure navigation doesn't interrupt current render
+            setTimeout(() => {
+              navigate(`/conversation/${receivedConversationId}`, { replace: true });
+              // Set a temporary title to avoid showing empty title during navigation
+              if (!currentConversationTitle) {
+                setCurrentConversationTitle("New Conversation");
+              }
+            }, 0);
           }
         }
 
@@ -202,6 +261,17 @@ const Chat: React.FC = () => {
           // Trigger sidebar refresh after conversation is completed (only for new conversations)
           if (wasNewConversation && receivedConversationId) {
             setSidebarRefreshTrigger(prev => prev + 1);
+            // Reset the new conversation navigation flag
+            setIsNewConversationNavigation(false);
+          }
+          
+          // Restore preserved context after streaming completes
+          if (preservedContext) {
+            setTimeout(() => {
+              setSelectedDocuments(preservedContext.documents);
+              setSelectedCollection(preservedContext.collection);
+              setPreservedContext(null);
+            }, 100);
           }
           
           // Fetch updated conversation to get message IDs for feedback
@@ -253,10 +323,14 @@ const Chat: React.FC = () => {
   };
 
   const handleSelectConversation = (conversationId: string) => {
+    // Reset the new conversation navigation flag when user manually selects a conversation
+    setIsNewConversationNavigation(false);
     navigate(`/conversation/${conversationId}`);
   };
 
   const handleNewConversation = () => {
+    // Reset the new conversation navigation flag when starting a new conversation
+    setIsNewConversationNavigation(false);
     navigate('/');
   };
 
