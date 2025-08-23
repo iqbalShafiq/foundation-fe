@@ -226,6 +226,40 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
           </div>
         </div>
 
+        {/* Show thinking/reasoning content for React Agent responses (CSV/Excel analysis) */}
+        {!message.isUser && (message.thinkingContent || message.reasoningContent) && (
+          <div className="mt-2 space-y-2">
+            {message.thinkingContent && (
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors duration-200 flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full opacity-60"></span>
+                  <span>Show thinking process</span>
+                  <span className="group-open:rotate-90 transition-transform duration-200">▶</span>
+                </summary>
+                <div className="mt-2 px-3 py-2 bg-gray-800 rounded-md border border-gray-600">
+                  <div className="text-xs text-gray-300 whitespace-pre-wrap">
+                    {message.thinkingContent}
+                  </div>
+                </div>
+              </details>
+            )}
+            {message.reasoningContent && (
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors duration-200 flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full opacity-60"></span>
+                  <span>Show reasoning process</span>
+                  <span className="group-open:rotate-90 transition-transform duration-200">▶</span>
+                </summary>
+                <div className="mt-2 px-3 py-2 bg-gray-800 rounded-md border border-gray-600">
+                  <div className="text-xs text-gray-300 whitespace-pre-wrap">
+                    {message.reasoningContent}
+                  </div>
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
         {/* Document Context Indicator */}
         {message.documentContext && (
           <DocumentContextIndicator 

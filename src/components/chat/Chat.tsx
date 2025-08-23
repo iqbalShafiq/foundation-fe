@@ -11,6 +11,7 @@ import ChatHeader from "./ChatHeader";
 import ChatMessage from "./ChatMessage";
 import ChatInput, { ChatInputRef } from "./ChatInput";
 import TypingIndicator from "./TypingIndicator";
+import ThinkingIndicator from "./ThinkingIndicator";
 import ConversationSidebar from "./ConversationSidebar";
 import AllConversations from "./AllConversations";
 
@@ -23,6 +24,9 @@ const Chat: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<ModelType>(() => modelStorage.load("Standard"));
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState("");
+  const [currentThinkingContent, setCurrentThinkingContent] = useState("");
+  const [currentReasoningContent, setCurrentReasoningContent] = useState("");
+  const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | null>(null);
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -51,20 +55,23 @@ const Chat: React.FC = () => {
     previousConversationId.current = conversationId;
     
     if (conversationId) {
-      // Skip loading if this is a new conversation navigation (to prevent interrupting stream)
-      if (isNewConversationNavigation) {
+      // Skip loading if this is a new conversation navigation during streaming (to prevent interrupting stream)
+      if (isNewConversationNavigation && isStreaming) {
         return;
       }
       
-      // If we're switching conversations (not during streaming), load immediately
-      if (isConversationSwitch && !isStreaming) {
-        loadConversation(conversationId);
-      }
-      // If we're streaming but this is a different conversation, still load it (user clicked another conversation)
-      else if (isConversationSwitch && isStreaming) {
-        // Stop any ongoing stream and load the new conversation
-        setIsStreaming(false);
-        setCurrentStreamContent("");
+      // Load conversation if:
+      // 1. It's a conversation switch (including from undefined to a conversationId)
+      // 2. OR we have a conversationId but no messages (page refresh scenario)
+      if (isConversationSwitch || (conversationId && messages.length === 0)) {
+        // If we're streaming and this is a different conversation, stop the stream first
+        if (isStreaming) {
+          setIsStreaming(false);
+          setCurrentStreamContent("");
+          setCurrentThinkingContent("");
+          setCurrentReasoningContent("");
+          setStreamingPhase(null);
+        }
         loadConversation(conversationId);
       }
     } else {
@@ -73,11 +80,14 @@ const Chat: React.FC = () => {
         setMessages([]);
         setCurrentConversationTitle("");
         setCurrentStreamContent("");
+        setCurrentThinkingContent("");
+        setCurrentReasoningContent("");
+        setStreamingPhase(null);
         setSelectedDocuments([]);
         setSelectedCollection(undefined);
       }
     }
-  }, [conversationId, isNewConversationNavigation]);
+  }, [conversationId, isNewConversationNavigation, isStreaming, messages.length]);
 
   // Load conversation after streaming completes for new conversations
   useEffect(() => {
@@ -120,7 +130,7 @@ const Chat: React.FC = () => {
   }, [currentConversationId]);
 
   const generateMessageId = () => {
-    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    return Date.now().toString() + Math.random().toString(36).substring(2, 11);
   };
 
   // Clean up content to fix list spacing issues
@@ -131,6 +141,9 @@ const Chat: React.FC = () => {
 
   const loadConversation = async (conversationId: string) => {
     setCurrentStreamContent("");
+    setCurrentThinkingContent("");
+    setCurrentReasoningContent("");
+    setStreamingPhase(null);
     
     // Only reset document context when loading existing conversation if we're not streaming
     // This prevents context loss during new conversation navigation
@@ -190,6 +203,9 @@ const Chat: React.FC = () => {
     // Set streaming state to show thinking indicator
     setIsStreaming(true);
     setCurrentStreamContent("");
+    setCurrentThinkingContent("");
+    setCurrentReasoningContent("");
+    setStreamingPhase('thinking');
 
     // Preserve document context for new conversations
     if (!currentConversationId && (documentContexts?.length || contextCollection)) {
@@ -227,7 +243,49 @@ const Chat: React.FC = () => {
           throw new Error(chunk.error);
         }
 
-        if (chunk.content) {
+        // Handle streaming response based on backend hybrid system
+        if (chunk.type) {
+          // React Agent response (CSV/Excel analysis)
+          switch (chunk.type) {
+            case "answer":
+              if (streamingPhase !== 'answer') {
+                setStreamingPhase('answer');
+                // Clear any thinking content when answer starts
+                setCurrentThinkingContent("");
+                setCurrentReasoningContent("");
+              }
+              if (chunk.content) {
+                fullContent += chunk.content;
+                setCurrentStreamContent(fullContent);
+              }
+              break;
+            case "thinking":
+              // Future feature - show thinking process for React Agent
+              if (streamingPhase !== 'thinking') {
+                setStreamingPhase('thinking');
+              }
+              if (chunk.content) {
+                setCurrentThinkingContent(prev => prev + chunk.content);
+              }
+              break;
+            case "reasoning":
+              // Future feature - show reasoning process for React Agent
+              if (streamingPhase !== 'reasoning') {
+                setStreamingPhase('reasoning');
+              }
+              if (chunk.content) {
+                setCurrentReasoningContent(prev => prev + chunk.content);
+              }
+              break;
+          }
+        } else if (chunk.content) {
+          // ChatOpenAI response (normal chat & documents)
+          if (streamingPhase !== 'answer') {
+            setStreamingPhase('answer');
+            // Clear any thinking content when answer starts
+            setCurrentThinkingContent("");
+            setCurrentReasoningContent("");
+          }
           fullContent += chunk.content;
           setCurrentStreamContent(fullContent);
         }
@@ -251,12 +309,18 @@ const Chat: React.FC = () => {
 
         if (chunk.done) {
           assistantMessage.content = fullContent;
+          assistantMessage.thinkingContent = currentThinkingContent;
+          assistantMessage.reasoningContent = currentReasoningContent;
+          
           // Store context sources if available
           if (chunk.context_sources) {
             (assistantMessage as any).contextSources = chunk.context_sources;
           }
           setMessages((prev) => [...prev, assistantMessage]);
           setCurrentStreamContent("");
+          setCurrentThinkingContent("");
+          setCurrentReasoningContent("");
+          setStreamingPhase(null);
           
           // Trigger sidebar refresh after conversation is completed (only for new conversations)
           if (wasNewConversation && receivedConversationId) {
@@ -313,6 +377,9 @@ const Chat: React.FC = () => {
       };
       setMessages((prev) => [...prev, errorMessage]);
       setCurrentStreamContent("");
+      setCurrentThinkingContent("");
+      setCurrentReasoningContent("");
+      setStreamingPhase(null);
     } finally {
       setIsStreaming(false);
       // Focus back to input after streaming is complete
@@ -421,7 +488,21 @@ const Chat: React.FC = () => {
 
                   {isStreaming && (
                     <>
-                      {currentStreamContent ? (
+                      {/* Show thinking indicator for React Agent (future feature) */}
+                      {streamingPhase === 'thinking' && (
+                        <ThinkingIndicator 
+                          content={currentThinkingContent}
+                          phase="thinking"
+                        />
+                      )}
+                      {streamingPhase === 'reasoning' && (
+                        <ThinkingIndicator 
+                          content={currentReasoningContent}
+                          phase="reasoning"
+                        />
+                      )}
+                      {/* Show streaming answer for both ChatOpenAI and React Agent */}
+                      {streamingPhase === 'answer' && currentStreamContent && (
                         <div className="flex items-start space-x-3 py-3">
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md">
                             <span className="text-sm">🤖</span>
@@ -508,7 +589,8 @@ const Chat: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ) : (
+                      )}
+                      {!streamingPhase && (
                         <TypingIndicator />
                       )}
                     </>

@@ -20,14 +20,19 @@ export type ChatMessage = {
   imageUrls?: string[]; // URLs of images attached to this message
   contextSources?: ContextSource[]; // Document sources used for this response
   documentContext?: DocumentContext | null; // Document context information
+  thinkingContent?: string; // Thinking phase content
+  reasoningContent?: string; // Reasoning summary content
+  isThinking?: boolean; // Whether currently in thinking phase
+  isReasoning?: boolean; // Whether currently in reasoning phase
 };
 
 export type StreamChunk = {
+  type?: 'thinking' | 'reasoning' | 'answer'; // Only present for React Agent responses
   content: string;
   done: boolean;
   error?: string;
   conversation_id?: string;
-  context_sources?: ContextSource[];
+  context_sources?: ContextSource[]; // Document sources from both ChatOpenAI and React Agent
 };
 
 export type ContextSource = {
