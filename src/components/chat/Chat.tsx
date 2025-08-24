@@ -14,6 +14,7 @@ import TypingIndicator from "./TypingIndicator";
 import ThinkingIndicator from "./ThinkingIndicator";
 import ConversationSidebar from "./ConversationSidebar";
 import AllConversations from "./AllConversations";
+import PlotlyChart from "./PlotlyChart";
 
 const Chat: React.FC = () => {
   const { id: conversationId } = useParams<{ id: string }>();
@@ -24,9 +25,11 @@ const Chat: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<ModelType>(() => modelStorage.load("Standard"));
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState("");
+  const [currentChartContent, setCurrentChartContent] = useState<any>(null);
   const [currentThinkingContent, setCurrentThinkingContent] = useState("");
   const [currentReasoningContent, setCurrentReasoningContent] = useState("");
   const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | null>(null);
+  const [currentMessageType, setCurrentMessageType] = useState<'text' | 'chart'>('text');
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -68,6 +71,7 @@ const Chat: React.FC = () => {
         if (isStreaming) {
           setIsStreaming(false);
           setCurrentStreamContent("");
+          setCurrentChartContent(null);
           setCurrentThinkingContent("");
           setCurrentReasoningContent("");
           setStreamingPhase(null);
@@ -80,6 +84,7 @@ const Chat: React.FC = () => {
         setMessages([]);
         setCurrentConversationTitle("");
         setCurrentStreamContent("");
+        setCurrentChartContent(null);
         setCurrentThinkingContent("");
         setCurrentReasoningContent("");
         setStreamingPhase(null);
@@ -141,6 +146,7 @@ const Chat: React.FC = () => {
 
   const loadConversation = async (conversationId: string) => {
     setCurrentStreamContent("");
+    setCurrentChartContent(null);
     setCurrentThinkingContent("");
     setCurrentReasoningContent("");
     setStreamingPhase(null);
@@ -160,18 +166,101 @@ const Chat: React.FC = () => {
       setCurrentConversationTitle(conversationDetail.title);
       
       // Convert backend messages to frontend format
-      const loadedMessages: ChatMessageType[] = conversationDetail.messages.map((msg) => ({
-        id: msg.id.toString(),
-        content: msg.content,
-        isUser: msg.role === 'user',
-        timestamp: new Date(msg.created_at),
-        model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
-        messageId: msg.role === 'assistant' ? msg.id : undefined,
-        imageUrls: msg.image_urls,
-        documentContext: msg.document_context,
-      }));
+      const loadedMessages: ChatMessageType[] = conversationDetail.messages.map((msg, index) => {
+        // Determine message type and content
+        let messageType: 'text' | 'chart' = 'text';
+        let content = msg.content;
+        
+        // Chart should only be displayed in assistant messages
+        if (msg.role === 'assistant') {
+          // Check if this assistant message has chart data
+          if (msg.chart_data) {
+            messageType = 'chart';
+            // Combine chart data with text content
+            if (msg.content && msg.content.trim()) {
+              content = JSON.stringify({
+                chart_data: msg.chart_data.chart_data,
+                chart_type: msg.chart_data.chart_type,
+                description: msg.chart_data.description,
+                config: msg.chart_data.config,
+                text_content: msg.content.trim()
+              });
+            } else {
+              // Only chart data, no text content
+              content = msg.chart_data;
+            }
+          } else {
+            // Check if the previous user message has chart data (chart request)
+            const prevMessage = conversationDetail.messages[index - 1];
+            if (prevMessage && prevMessage.role === 'user' && prevMessage.chart_data) {
+              messageType = 'chart';
+              // Use chart data from user request but display in assistant response
+              if (msg.content && msg.content.trim()) {
+                content = JSON.stringify({
+                  chart_data: prevMessage.chart_data.chart_data,
+                  chart_type: prevMessage.chart_data.chart_type,
+                  description: prevMessage.chart_data.description,
+                  config: prevMessage.chart_data.config,
+                  text_content: msg.content.trim()
+                });
+              } else {
+                content = prevMessage.chart_data;
+              }
+            } else {
+              // Fallback: Try to parse content for backward compatibility
+              try {
+                const parsedContent = JSON.parse(msg.content);
+                if (parsedContent.chart_data || parsedContent.type === 'chart' || 
+                    (parsedContent.data && Array.isArray(parsedContent.data))) {
+                  messageType = 'chart';
+                }
+              } catch {
+                // Content is not JSON, keep as text
+              }
+            }
+          }
+        }
+        
+        return {
+          id: msg.id.toString(),
+          content,
+          type: messageType,
+          isUser: msg.role === 'user',
+          timestamp: new Date(msg.created_at),
+          model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
+          messageId: msg.role === 'assistant' ? msg.id : undefined,
+          imageUrls: msg.image_urls || undefined,
+          documentContext: msg.document_context,
+        };
+      });
       
       setMessages(loadedMessages);
+      
+      // Auto-select all documents that were used in this conversation
+      const allDocumentIds = new Set<string>();
+      let foundCollection: string | undefined;
+      
+      conversationDetail.messages.forEach(msg => {
+        if (msg.document_context) {
+          // Collect document IDs
+          msg.document_context.documents.forEach(doc => {
+            allDocumentIds.add(doc.document_id);
+          });
+          
+          // Use the collection from the most recent message with context
+          if (!foundCollection) {
+            foundCollection = msg.document_context.collection_id;
+          }
+        }
+      });
+      
+      // Set selected documents and collection if any were found
+      if (allDocumentIds.size > 0) {
+        setSelectedDocuments(Array.from(allDocumentIds));
+        if (foundCollection) {
+          setSelectedCollection(foundCollection);
+        }
+      }
       
       // Focus input after loading conversation
       setTimeout(() => {
@@ -203,9 +292,11 @@ const Chat: React.FC = () => {
     // Set streaming state to show thinking indicator
     setIsStreaming(true);
     setCurrentStreamContent("");
+    setCurrentChartContent(null);
     setCurrentThinkingContent("");
     setCurrentReasoningContent("");
     setStreamingPhase('thinking');
+    setCurrentMessageType('text');
 
     // Preserve document context for new conversations
     if (!currentConversationId && (documentContexts?.length || contextCollection)) {
@@ -245,9 +336,18 @@ const Chat: React.FC = () => {
 
         // Handle streaming response based on backend hybrid system
         if (chunk.type) {
-          // React Agent response (CSV/Excel analysis)
           switch (chunk.type) {
+            case "chart":
+              // Handle chart response - store chart separately
+              setCurrentChartContent(chunk.content);
+              setCurrentMessageType('chart');
+              setStreamingPhase('answer');
+              setCurrentThinkingContent("");
+              setCurrentReasoningContent("");
+              // Don't overwrite fullContent for chart, keep it separate
+              break;
             case "answer":
+              // React Agent response (CSV/Excel analysis) - this is text content after chart
               if (streamingPhase !== 'answer') {
                 setStreamingPhase('answer');
                 // Clear any thinking content when answer starts
@@ -279,7 +379,7 @@ const Chat: React.FC = () => {
               break;
           }
         } else if (chunk.content) {
-          // ChatOpenAI response (normal chat & documents)
+          // ChatOpenAI response (normal chat & documents) or text answer after chart
           if (streamingPhase !== 'answer') {
             setStreamingPhase('answer');
             // Clear any thinking content when answer starts
@@ -308,7 +408,27 @@ const Chat: React.FC = () => {
         }
 
         if (chunk.done) {
-          assistantMessage.content = fullContent;
+          // If we have both chart and text content, combine them properly
+          if (currentChartContent && fullContent.trim()) {
+            // Store both chart and text content
+            assistantMessage.content = JSON.stringify({
+              chart_data: currentChartContent.chart_data || currentChartContent,
+              text_content: fullContent.trim(),
+              chart_type: currentChartContent.chart_type,
+              description: currentChartContent.description,
+              config: currentChartContent.config || {}
+            });
+            assistantMessage.type = 'chart';
+          } else if (currentChartContent) {
+            // Only chart content
+            assistantMessage.content = currentChartContent;
+            assistantMessage.type = 'chart';
+          } else {
+            // Only text content
+            assistantMessage.content = fullContent;
+            assistantMessage.type = 'text';
+          }
+          
           assistantMessage.thinkingContent = currentThinkingContent;
           assistantMessage.reasoningContent = currentReasoningContent;
           
@@ -318,9 +438,11 @@ const Chat: React.FC = () => {
           }
           setMessages((prev) => [...prev, assistantMessage]);
           setCurrentStreamContent("");
+          setCurrentChartContent(null);
           setCurrentThinkingContent("");
           setCurrentReasoningContent("");
           setStreamingPhase(null);
+          setCurrentMessageType('text');
           
           // Trigger sidebar refresh after conversation is completed (only for new conversations)
           if (wasNewConversation && receivedConversationId) {
@@ -348,15 +470,72 @@ const Chat: React.FC = () => {
                 setCurrentConversationTitle(conversationDetail.title);
               }
               
-              const updatedMessages: ChatMessageType[] = conversationDetail.messages.map((msg) => ({
-                id: msg.id.toString(),
-                content: msg.content,
-                isUser: msg.role === 'user',
-                timestamp: new Date(msg.created_at),
-                model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
-                messageId: msg.role === 'assistant' ? msg.id : undefined,
-                imageUrls: msg.image_urls,
-              }));
+              const updatedMessages: ChatMessageType[] = conversationDetail.messages.map((msg, index) => {
+                // Determine message type and content
+                let messageType: 'text' | 'chart' = 'text';
+                let content = msg.content;
+                
+                // Chart should only be displayed in assistant messages
+                if (msg.role === 'assistant') {
+                  // Check if this assistant message has chart data
+                  if (msg.chart_data) {
+                    messageType = 'chart';
+                    // Combine chart data with text content
+                    if (msg.content && msg.content.trim()) {
+                      content = JSON.stringify({
+                        chart_data: msg.chart_data.chart_data,
+                        chart_type: msg.chart_data.chart_type,
+                        description: msg.chart_data.description,
+                        config: msg.chart_data.config,
+                        text_content: msg.content.trim()
+                      });
+                    } else {
+                      // Only chart data, no text content
+                      content = msg.chart_data;
+                    }
+                  } else {
+                    // Check if the previous user message has chart data (chart request)
+                    const prevMessage = conversationDetail.messages[index - 1];
+                    if (prevMessage && prevMessage.role === 'user' && prevMessage.chart_data) {
+                      messageType = 'chart';
+                      // Use chart data from user request but display in assistant response
+                      if (msg.content && msg.content.trim()) {
+                        content = JSON.stringify({
+                          chart_data: prevMessage.chart_data.chart_data,
+                          chart_type: prevMessage.chart_data.chart_type,
+                          description: prevMessage.chart_data.description,
+                          config: prevMessage.chart_data.config,
+                          text_content: msg.content.trim()
+                        });
+                      } else {
+                        content = prevMessage.chart_data;
+                      }
+                    } else {
+                      // Fallback: Try to parse content for backward compatibility
+                      try {
+                        const parsedContent = JSON.parse(msg.content);
+                        if (parsedContent.chart_data || parsedContent.type === 'chart' || 
+                            (parsedContent.data && Array.isArray(parsedContent.data))) {
+                          messageType = 'chart';
+                        }
+                      } catch {
+                        // Content is not JSON, keep as text
+                      }
+                    }
+                  }
+                }
+                
+                return {
+                  id: msg.id.toString(),
+                  content,
+                  type: messageType,
+                  isUser: msg.role === 'user',
+                  timestamp: new Date(msg.created_at),
+                  model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
+                  messageId: msg.role === 'assistant' ? msg.id : undefined,
+                  imageUrls: msg.image_urls || undefined,
+                };
+              });
               setMessages(updatedMessages);
             } catch (error) {
               console.error('Error fetching updated conversation:', error);
@@ -377,6 +556,7 @@ const Chat: React.FC = () => {
       };
       setMessages((prev) => [...prev, errorMessage]);
       setCurrentStreamContent("");
+      setCurrentChartContent(null);
       setCurrentThinkingContent("");
       setCurrentReasoningContent("");
       setStreamingPhase(null);
@@ -502,81 +682,93 @@ const Chat: React.FC = () => {
                         />
                       )}
                       {/* Show streaming answer for both ChatOpenAI and React Agent */}
-                      {streamingPhase === 'answer' && currentStreamContent && (
+                      {streamingPhase === 'answer' && (currentStreamContent || currentChartContent) && (
                         <div className="flex items-start space-x-3 py-3">
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md">
                             <span className="text-sm">🤖</span>
                           </div>
-                          <div className="flex-1 max-w-3xl">
-                            <div className="inline-block px-5 py-3 bg-gray-700 rounded-2xl rounded-tl-md shadow-md">
-                              <div className="prose prose-sm max-w-none break-words text-gray-100">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  rehypePlugins={[rehypeHighlight]}
-                                  components={{
-                                    p: ({ children, node }) => {
-                                      // Check if this paragraph is inside a list item
-                                      const isInListItem = (node as any)?.parent?.tagName === 'li';
-                                      return (
-                                        <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                          <div className="flex-1 max-w-4xl">
+                            {/* Show chart if we have chart content */}
+                            {currentChartContent && (
+                              <div className="mb-4">
+                                <PlotlyChart data={currentChartContent} />
+                              </div>
+                            )}
+                            
+                            {/* Show text content if we have any */}
+                            {currentStreamContent && (
+                              <div className="inline-block px-5 py-3 bg-gray-700 rounded-2xl rounded-tl-md shadow-md">
+                                <div className="prose prose-sm max-w-none break-words text-gray-100">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    rehypePlugins={[rehypeHighlight]}
+                                    components={{
+                                      p: ({ children, node }) => {
+                                        // Check if this paragraph is inside a list item
+                                        const isInListItem = (node as any)?.parent?.tagName === 'li';
+                                        return (
+                                          <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                                            {children}
+                                          </p>
+                                        );
+                                      },
+                                      h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h1>,
+                                      h2: ({ children }) => <h2 className="text-base font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h2>,
+                                      h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h3>,
+                                      ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
+                                      ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
+                                      li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
+                                      blockquote: ({ children }) => (
+                                        <blockquote className="border-l-2 border-blue-400 pl-3 my-2 first:mt-0 last:mb-0">
                                           {children}
-                                        </p>
-                                      );
-                                    },
-                                    h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h1>,
-                                    h2: ({ children }) => <h2 className="text-base font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h2>,
-                                    h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0 text-gray-100">{children}</h3>,
-                                    ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
-                                    ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
-                                    li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
-                                    blockquote: ({ children }) => (
-                                      <blockquote className="border-l-2 border-blue-400 pl-3 my-2 first:mt-0 last:mb-0">
-                                        {children}
-                                      </blockquote>
-                                    ),
-                                    code: ({ inline, children, ...props }: any) => {
-                                      if (inline) {
+                                        </blockquote>
+                                      ),
+                                      code: ({ inline, children, ...props }: any) => {
+                                        if (inline) {
+                                          return (
+                                            <code
+                                              className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-600 text-gray-200"
+                                              {...props}
+                                            >
+                                              {children}
+                                            </code>
+                                          );
+                                        }
                                         return (
                                           <code
-                                            className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-600 text-gray-200"
+                                            className="block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 bg-gray-900 text-gray-100"
                                             {...props}
                                           >
                                             {children}
                                           </code>
                                         );
-                                      }
-                                      return (
-                                        <code
-                                          className="block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 bg-gray-900 text-gray-100"
-                                          {...props}
+                                      },
+                                      pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
+                                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                      em: ({ children }) => <em className="italic">{children}</em>,
+                                      a: ({ children, href }) => (
+                                        <a
+                                          href={href}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="underline hover:no-underline text-blue-400"
                                         >
                                           {children}
-                                        </code>
-                                      );
-                                    },
-                                    pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
-                                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                                    em: ({ children }) => <em className="italic">{children}</em>,
-                                    a: ({ children, href }) => (
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline hover:no-underline text-blue-400"
-                                      >
-                                        {children}
-                                      </a>
-                                    ),
-                                    hr: () => (
-                                      <hr className="my-3 border-0 h-px bg-gray-600" />
-                                    ),
-                                  }}
-                                >
-                                  {cleanContent(currentStreamContent)}
-                                </ReactMarkdown>
-                                <span className="animate-pulse">|</span>
+                                        </a>
+                                      ),
+                                      hr: () => (
+                                        <hr className="my-3 border-0 h-px bg-gray-600" />
+                                      ),
+                                    }}
+                                  >
+                                    {cleanContent(currentStreamContent)}
+                                  </ReactMarkdown>
+                                  <span className="animate-pulse">|</span>
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            
+                            {/* Timestamp and model info */}
                             <div className="flex items-center mt-2 text-xs text-gray-400">
                               <span>
                                 {new Date().toLocaleTimeString([], {
@@ -586,6 +778,13 @@ const Chat: React.FC = () => {
                               </span>
                               <span className="mx-1">•</span>
                               <span>{selectedModel}</span>
+                              {currentChartContent && (
+                                <>
+                                  <span className="mx-1">•</span>
+                                  <span>Chart</span>
+                                </>
+                              )}
+                              {currentStreamContent && <span className="animate-pulse ml-1">|</span>}
                             </div>
                           </div>
                         </div>

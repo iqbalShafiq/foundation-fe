@@ -9,6 +9,7 @@ import { DocumentContextIndicator } from './DocumentContextIndicator';
 import { ImageViewer } from '../ui';
 import { apiService } from '../../services/api';
 import { getImageUrl } from '../../utils/imageUrl';
+import PlotlyChart from './PlotlyChart';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -110,121 +111,237 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
           </div>
         )}
         
-        <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'} px-5 py-3 shadow-md ${
-          message.isUser
-            ? 'bg-blue-600 text-white rounded-2xl rounded-tr-md'
-            : 'bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md'
-        }`}>
-          <div className={`prose prose-sm max-w-none break-words ${message.isUser ? 'text-white' : 'text-gray-100'}`}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                // Override default styling for better chat bubble appearance
-                p: ({ children, node }) => {
-                  // Check if this paragraph is inside a list item
-                  const isInListItem = (node as any)?.parent?.tagName === 'li';
+        {/* Render chart if message type is chart */}
+        {message.type === 'chart' ? (
+          <div className="w-full max-w-4xl space-y-4">
+            {/* Extract and display chart */}
+            <PlotlyChart data={message.content} />
+            
+            {/* Display text content if available */}
+            {(() => {
+              try {
+                const parsedContent = typeof message.content === 'string' 
+                  ? JSON.parse(message.content) 
+                  : message.content;
+                
+                if (parsedContent.text_content && parsedContent.text_content.trim()) {
                   return (
-                    <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
-                      {children}
-                    </p>
+                    <div className="inline-block px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md">
+                      <div className={`prose prose-sm max-w-none break-words text-gray-100`}>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeHighlight]}
+                          components={{
+                            // Override default styling for better chat bubble appearance
+                            p: ({ children, node }) => {
+                              // Check if this paragraph is inside a list item
+                              const isInListItem = (node as any)?.parent?.tagName === 'li';
+                              return (
+                                <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                                  {children}
+                                </p>
+                              );
+                            },
+                            h1: ({ children }) => <h1 className={`text-lg font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h1>,
+                            h2: ({ children }) => <h2 className={`text-base font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h2>,
+                            h3: ({ children }) => <h3 className={`text-sm font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h3>,
+                            ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
+                            ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
+                            blockquote: ({ children }) => (
+                              <blockquote className={`border-l-2 pl-3 my-2 first:mt-0 last:mb-0 border-blue-400`}>
+                                {children}
+                              </blockquote>
+                            ),
+                            code: ({ inline, children, ...props }: any) => {
+                              if (inline) {
+                                return (
+                                  <code
+                                    className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-600 text-gray-200"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return (
+                                <code
+                                  className="block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 bg-gray-900 text-gray-100"
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              );
+                            },
+                            pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            a: ({ children, href }) => (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:no-underline text-blue-400"
+                              >
+                                {children}
+                              </a>
+                            ),
+                            hr: () => (
+                              <hr className="my-3 border-0 h-px bg-gray-600" />
+                            ),
+                            table: ({ children }) => (
+                              <div className="overflow-x-auto my-2 first:mt-0 last:mb-0">
+                                <table className="min-w-full border border-gray-600">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            thead: ({ children }) => (
+                              <thead className="bg-gray-600">
+                                {children}
+                              </thead>
+                            ),
+                            th: ({ children }) => (
+                              <th className="px-3 py-2 text-left font-semibold border border-gray-600">
+                                {children}
+                              </th>
+                            ),
+                            td: ({ children }) => (
+                              <td className="px-3 py-2 border border-gray-600">
+                                {children}
+                              </td>
+                            ),
+                          }}
+                        >
+                          {cleanContent(parsedContent.text_content)}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
                   );
-                },
-                h1: ({ children }) => <h1 className={`text-lg font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h1>,
-                h2: ({ children }) => <h2 className={`text-base font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h2>,
-                h3: ({ children }) => <h3 className={`text-sm font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h3>,
-                ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
-                ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
-                li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
-                blockquote: ({ children }) => (
-                  <blockquote className={`border-l-2 pl-3 my-2 first:mt-0 last:mb-0 ${
-                    message.isUser ? 'border-white/30' : 'border-blue-400'
-                  }`}>
-                    {children}
-                  </blockquote>
-                ),
-                code: ({ inline, children, ...props }: any) => {
-                  if (inline) {
+                }
+                return null;
+              } catch (e) {
+                return null;
+              }
+            })()}
+          </div>
+        ) : (
+          <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'} px-5 py-3 shadow-md ${
+            message.isUser
+              ? 'bg-blue-600 text-white rounded-2xl rounded-tr-md'
+              : 'bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md'
+          }`}>
+            <div className={`prose prose-sm max-w-none break-words ${message.isUser ? 'text-white' : 'text-gray-100'}`}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  // Override default styling for better chat bubble appearance
+                  p: ({ children, node }) => {
+                    // Check if this paragraph is inside a list item
+                    const isInListItem = (node as any)?.parent?.tagName === 'li';
+                    return (
+                      <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                        {children}
+                      </p>
+                    );
+                  },
+                  h1: ({ children }) => <h1 className={`text-lg font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h1>,
+                  h2: ({ children }) => <h2 className={`text-base font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h2>,
+                  h3: ({ children }) => <h3 className={`text-sm font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h3>,
+                  ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
+                  ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
+                  li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
+                  blockquote: ({ children }) => (
+                    <blockquote className={`border-l-2 pl-3 my-2 first:mt-0 last:mb-0 ${
+                      message.isUser ? 'border-white/30' : 'border-blue-400'
+                    }`}>
+                      {children}
+                    </blockquote>
+                  ),
+                  code: ({ inline, children, ...props }: any) => {
+                    if (inline) {
+                      return (
+                        <code
+                          className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+                            message.isUser 
+                              ? 'bg-white/20 text-white' 
+                              : 'bg-gray-600 text-gray-200'
+                          }`}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    }
                     return (
                       <code
-                        className={`px-1.5 py-0.5 rounded text-xs font-mono ${
-                          message.isUser 
-                            ? 'bg-white/20 text-white' 
-                            : 'bg-gray-600 text-gray-200'
+                        className={`block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 ${
+                          message.isUser
+                            ? 'bg-white/10 text-white'
+                            : 'bg-gray-900 text-gray-100'
                         }`}
                         {...props}
                       >
                         {children}
                       </code>
                     );
-                  }
-                  return (
-                    <code
-                      className={`block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 ${
-                        message.isUser
-                          ? 'bg-white/10 text-white'
-                          : 'bg-gray-900 text-gray-100'
+                  },
+                  pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  a: ({ children, href }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`underline hover:no-underline ${
+                        message.isUser ? 'text-white' : 'text-blue-400'
                       }`}
-                      {...props}
                     >
                       {children}
-                    </code>
-                  );
-                },
-                pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
-                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                em: ({ children }) => <em className="italic">{children}</em>,
-                a: ({ children, href }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`underline hover:no-underline ${
-                      message.isUser ? 'text-white' : 'text-blue-400'
-                    }`}
-                  >
-                    {children}
-                  </a>
-                ),
-                hr: () => (
-                  <hr className={`my-3 border-0 h-px ${
-                    message.isUser ? 'bg-white/20' : 'bg-gray-600'
-                  }`} />
-                ),
-                table: ({ children }) => (
-                  <div className="overflow-x-auto my-2 first:mt-0 last:mb-0">
-                    <table className={`min-w-full border ${
+                    </a>
+                  ),
+                  hr: () => (
+                    <hr className={`my-3 border-0 h-px ${
+                      message.isUser ? 'bg-white/20' : 'bg-gray-600'
+                    }`} />
+                  ),
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-2 first:mt-0 last:mb-0">
+                      <table className={`min-w-full border ${
+                        message.isUser ? 'border-white/30' : 'border-gray-600'
+                      }`}>
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  thead: ({ children }) => (
+                    <thead className={message.isUser ? 'bg-white/10' : 'bg-gray-600'}>
+                      {children}
+                    </thead>
+                  ),
+                  th: ({ children }) => (
+                    <th className={`px-3 py-2 text-left font-semibold border ${
                       message.isUser ? 'border-white/30' : 'border-gray-600'
                     }`}>
                       {children}
-                    </table>
-                  </div>
-                ),
-                thead: ({ children }) => (
-                  <thead className={message.isUser ? 'bg-white/10' : 'bg-gray-600'}>
-                    {children}
-                  </thead>
-                ),
-                th: ({ children }) => (
-                  <th className={`px-3 py-2 text-left font-semibold border ${
-                    message.isUser ? 'border-white/30' : 'border-gray-600'
-                  }`}>
-                    {children}
-                  </th>
-                ),
-                td: ({ children }) => (
-                  <td className={`px-3 py-2 border ${
-                    message.isUser ? 'border-white/30' : 'border-gray-600'
-                  }`}>
-                    {children}
-                  </td>
-                ),
-              }}
-            >
-              {cleanContent(message.content)}
-            </ReactMarkdown>
+                    </th>
+                  ),
+                  td: ({ children }) => (
+                    <td className={`px-3 py-2 border ${
+                      message.isUser ? 'border-white/30' : 'border-gray-600'
+                    }`}>
+                      {children}
+                    </td>
+                  ),
+                }}
+              >
+                {cleanContent(message.content)}
+              </ReactMarkdown>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Show thinking/reasoning content for React Agent responses (CSV/Excel analysis) */}
         {!message.isUser && (message.thinkingContent || message.reasoningContent) && (

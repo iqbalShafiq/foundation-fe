@@ -13,6 +13,7 @@ export type ChatRequest = {
 export type ChatMessage = {
   id: string;
   content: string;
+  type?: 'text' | 'chart'; // Message type for different content rendering
   isUser: boolean;
   timestamp: Date;
   model?: ModelType;
@@ -76,12 +77,20 @@ export type GroupedConversations = {
   [key: string]: Conversation[];
 };
 
+export type ChartData = {
+  chart_data: any; // Plotly chart data
+  chart_type: string; // Chart type (bar, line, etc.)
+  description: string; // Chart description
+  config: any; // Chart configuration
+};
+
 export type Message = {
   id: number;
   role: 'user' | 'assistant';
   content: string;
-  image_urls?: string[];
+  image_urls?: string[] | null;
   document_context?: DocumentContext | null;
+  chart_data?: ChartData | null; // Chart data from backend
   created_at: string;
 };
 
