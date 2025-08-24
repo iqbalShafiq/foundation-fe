@@ -12,6 +12,7 @@ import ChatMessage from "./ChatMessage";
 import ChatInput, { ChatInputRef } from "./ChatInput";
 import TypingIndicator from "./TypingIndicator";
 import ThinkingIndicator from "./ThinkingIndicator";
+import AnsweringIndicator from "./AnsweringIndicator";
 import ConversationSidebar from "./ConversationSidebar";
 import AllConversations from "./AllConversations";
 import PlotlyChart from "./PlotlyChart";
@@ -28,8 +29,7 @@ const Chat: React.FC = () => {
   const [currentChartContent, setCurrentChartContent] = useState<any>(null);
   const [currentThinkingContent, setCurrentThinkingContent] = useState("");
   const [currentReasoningContent, setCurrentReasoningContent] = useState("");
-  const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | null>(null);
-  const [currentMessageType, setCurrentMessageType] = useState<'text' | 'chart'>('text');
+  const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | 'answering' | null>(null);
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -187,7 +187,7 @@ const Chat: React.FC = () => {
               });
             } else {
               // Only chart data, no text content
-              content = msg.chart_data;
+              content = JSON.stringify(msg.chart_data);
             }
           } else {
             // Check if the previous user message has chart data (chart request)
@@ -204,7 +204,7 @@ const Chat: React.FC = () => {
                   text_content: msg.content.trim()
                 });
               } else {
-                content = prevMessage.chart_data;
+                content = JSON.stringify(prevMessage.chart_data);
               }
             } else {
               // Fallback: Try to parse content for backward compatibility
@@ -296,7 +296,6 @@ const Chat: React.FC = () => {
     setCurrentThinkingContent("");
     setCurrentReasoningContent("");
     setStreamingPhase('thinking');
-    setCurrentMessageType('text');
 
     // Preserve document context for new conversations
     if (!currentConversationId && (documentContexts?.length || contextCollection)) {
@@ -344,12 +343,11 @@ const Chat: React.FC = () => {
               setCurrentChartContent(null);
               setCurrentThinkingContent("");
               setCurrentReasoningContent("");
-              setStreamingPhase('answer');
+              setStreamingPhase('answering');
               break;
             case "chart":
               // Handle chart response - store chart separately
               setCurrentChartContent(chunk.content);
-              setCurrentMessageType('chart');
               setStreamingPhase('answer');
               setCurrentThinkingContent("");
               setCurrentReasoningContent("");
@@ -366,6 +364,9 @@ const Chat: React.FC = () => {
               if (chunk.content) {
                 fullContent += chunk.content;
                 setCurrentStreamContent(fullContent);
+              } else if (!chunk.content && !fullContent.trim()) {
+                // If answer content is empty and we don't have any accumulated content, show answering
+                setStreamingPhase('answering');
               }
               break;
             case "thinking":
@@ -451,7 +452,6 @@ const Chat: React.FC = () => {
           setCurrentThinkingContent("");
           setCurrentReasoningContent("");
           setStreamingPhase(null);
-          setCurrentMessageType('text');
           
           // Trigger sidebar refresh after conversation is completed (only for new conversations)
           if (wasNewConversation && receivedConversationId) {
@@ -500,7 +500,7 @@ const Chat: React.FC = () => {
                       });
                     } else {
                       // Only chart data, no text content
-                      content = msg.chart_data;
+                      content = JSON.stringify(msg.chart_data);
                     }
                   } else {
                     // Check if the previous user message has chart data (chart request)
@@ -517,7 +517,7 @@ const Chat: React.FC = () => {
                           text_content: msg.content.trim()
                         });
                       } else {
-                        content = prevMessage.chart_data;
+                        content = JSON.stringify(prevMessage.chart_data);
                       }
                     } else {
                       // Fallback: Try to parse content for backward compatibility
@@ -689,6 +689,10 @@ const Chat: React.FC = () => {
                           content={currentReasoningContent}
                           phase="reasoning"
                         />
+                      )}
+                      {/* Show answering indicator when reset or answer is empty */}
+                      {streamingPhase === 'answering' && (
+                        <AnsweringIndicator />
                       )}
                       {/* Show streaming answer for both ChatOpenAI and React Agent */}
                       {streamingPhase === 'answer' && (currentStreamContent || currentChartContent) && (
