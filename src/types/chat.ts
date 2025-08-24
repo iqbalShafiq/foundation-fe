@@ -28,7 +28,7 @@ export type ChatMessage = {
 };
 
 export type StreamChunk = {
-  type?: 'thinking' | 'reasoning' | 'answer'; // Only present for React Agent responses
+  type?: 'thinking' | 'reasoning' | 'answer' | 'reset'; // Only present for React Agent responses
   content: string;
   done: boolean;
   error?: string;

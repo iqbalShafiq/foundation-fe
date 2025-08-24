@@ -337,6 +337,15 @@ const Chat: React.FC = () => {
         // Handle streaming response based on backend hybrid system
         if (chunk.type) {
           switch (chunk.type) {
+            case "reset":
+              // Clear all previous answer content before starting fresh
+              fullContent = "";
+              setCurrentStreamContent("");
+              setCurrentChartContent(null);
+              setCurrentThinkingContent("");
+              setCurrentReasoningContent("");
+              setStreamingPhase('answer');
+              break;
             case "chart":
               // Handle chart response - store chart separately
               setCurrentChartContent(chunk.content);
