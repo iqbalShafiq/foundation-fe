@@ -543,6 +543,7 @@ const Chat: React.FC = () => {
                   model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
                   messageId: msg.role === 'assistant' ? msg.id : undefined,
                   imageUrls: msg.image_urls || undefined,
+                  documentContext: msg.document_context,
                 };
               });
               setMessages(updatedMessages);
