@@ -91,6 +91,10 @@ class ApiService {
     return response.data;
   }
 
+  async deleteConversation(conversationId: string): Promise<void> {
+    await this.api.delete(`/conversations/${conversationId}`);
+  }
+
   async* streamChat(
     message: string, 
     model: ModelType = 'Standard', 

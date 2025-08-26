@@ -48,7 +48,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     setIsOpen(false);
   };
 
-  const dropdownPosition = direction === 'up' ? 'bottom-full mb-2' : 'top-full mt-2';
+  const dropdownPosition = direction === 'up' ? 'bottom-full' : 'top-full';
   const dropdownAlign = align === 'left' ? 'left-0' : 'right-0';
 
   return (
@@ -61,7 +61,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       </div>
 
       {isOpen && (
-        <div className={`absolute ${dropdownPosition} ${dropdownAlign} w-56 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-50 py-1`}>
+        <div className={`absolute ${dropdownPosition} ${direction === 'up' ? 'mb-1' : 'mt-1'} ${dropdownAlign} w-48 bg-gray-700 border border-gray-600 rounded-lg shadow-xl z-50 py-1`}>
           {items.map((item) => {
             const Icon = item.icon;
             const itemVariant = item.variant === 'danger' 

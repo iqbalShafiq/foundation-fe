@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { MessageCircle, Clock, Bot, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageCircle, Clock, Bot, ChevronLeft, ChevronRight, MoreVertical, Info, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { Conversation } from '../../types/chat';
-import { Card, Button } from '../ui';
+import { Card, Button, Dropdown } from '../ui';
+import ConversationInfoModal from './ConversationInfoModal';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 interface AllConversationsProps {
   onSelectConversation: (conversationId: string) => void;
 }
 
 const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversation }) => {
+  void onSelectConversation; // Mark unused prop to avoid linting errors
+  
+  const navigate = useNavigate();
+  void navigate; // Mark unused variable to avoid linting errors for now
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [paginationLoading, setPaginationLoading] = useState(false);
@@ -19,11 +25,39 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
   const [totalCount, setTotalCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const limit = 12; // Show 12 conversations per page for grid layout
 
   useEffect(() => {
     loadConversations();
   }, [currentPage]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't close if clicking on the three-dot button or expanded content
+      if (target.closest('[data-conversation-menu]')) {
+        return;
+      }
+      setOpenDropdownId(null);
+    };
+
+    if (openDropdownId) {
+      // Use a small delay to prevent immediate closure
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdownId]);
 
   const loadConversations = async () => {
     try {
@@ -41,7 +75,7 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
       setHasNext(response.pagination.has_next);
       setHasPrev(response.pagination.has_prev);
       setError('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load conversations');
       console.error('Error loading conversations:', err);
     } finally {
@@ -70,8 +104,62 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
   };
 
   const getModelIcon = (modelType: string) => {
+    void modelType; // Mark unused param to avoid linting errors
     return <Bot className="w-4 h-4 text-blue-400" />;
   };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedConversation) return;
+
+    try {
+      setIsDeleting(true);
+      await apiService.deleteConversation(selectedConversation.id);
+      
+      // Remove from local state
+      setConversations(prev => prev.filter(conv => conv.id !== selectedConversation.id));
+      
+      // Update total count
+      setTotalCount(prev => prev - 1);
+      
+      // If this was the last item on the page and we're not on page 1, go back a page
+      if (conversations.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        // Reload the conversations to refresh pagination
+        await loadConversations();
+      }
+      
+      setIsDeleteModalOpen(false);
+      setSelectedConversation(null);
+    } catch (err: unknown) {
+      console.error('Error deleting conversation:', err);
+      setError('Failed to delete conversation');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const getDropdownItems = (conversation: Conversation) => [
+    {
+      id: 'info',
+      label: 'View Info',
+      icon: Info,
+      onClick: () => {
+        setSelectedConversation(conversation);
+        setIsInfoModalOpen(true);
+      }
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: Trash2,
+      onClick: () => {
+        setSelectedConversation(conversation);
+        setIsDeleteModalOpen(true);
+      },
+      variant: 'danger' as const
+    }
+  ];
 
   if (loading) {
     return (
@@ -143,49 +231,123 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
           ) : (
             <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300 ${paginationLoading ? 'opacity-60' : 'opacity-100'}`}>
               {conversations.map((conversation) => (
-                <Link
-                  key={conversation.id}
-                  to={`/conversation/${conversation.id}`}
-                  className="block"
-                >
+                <div key={conversation.id} className="group" data-conversation-menu>
                   <Card 
-                    className="bg-gray-700 border-gray-600 hover:bg-gray-600 transition-all duration-200 hover:border-gray-500 cursor-pointer"
+                    className={`transition-all duration-400 ease-in-out cursor-pointer ${
+                      openDropdownId === conversation.id 
+                        ? 'bg-gray-600 border-gray-500 shadow-xl transform scale-[1.02]' 
+                        : 'bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500 hover:shadow-lg hover:transform hover:scale-[1.01]'
+                    }`}
                     padding="none"
                   >
-                    <div className="p-4">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          {getModelIcon(conversation.model_type)}
-                          <span className="text-xs font-medium text-blue-400 uppercase tracking-wide">
-                            {conversation.model_type}
-                          </span>
+                    {/* Main card content */}
+                    <div className="relative">
+                      <Link
+                        to={`/conversation/${conversation.id}`}
+                        className="block p-4 pr-12"
+                      >
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-2 min-w-0 flex-1">
+                            {getModelIcon(conversation.model_type)}
+                            <span className="text-xs font-medium text-blue-400 uppercase tracking-wide">
+                              {conversation.model_type}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1 text-gray-400 text-xs flex-shrink-0 ml-2">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatDate(conversation.updated_at)}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-1 text-gray-400 text-xs flex-shrink-0 ml-2">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatDate(conversation.updated_at)}</span>
+
+                        {/* Title */}
+                        <h3 className="text-gray-100 font-medium mb-3 leading-5 overflow-hidden" style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          minHeight: '2.5rem',
+                          height: '2.5rem'
+                        }}>
+                          {conversation.title}
+                        </h3>
+
+                        {/* Stats */}
+                        <div className="flex items-center text-xs text-gray-400">
+                          <MessageCircle className="w-3 h-3 mr-1" />
+                          <span>{conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}</span>
                         </div>
-                      </div>
+                      </Link>
+                      
+                      {/* Three-dot menu button */}
+                      <button
+                        className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-600 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setOpenDropdownId(openDropdownId === conversation.id ? null : conversation.id);
+                        }}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </div>
 
-                      {/* Title */}
-                      <h3 className="text-gray-100 font-medium mb-3 leading-5 overflow-hidden" style={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        minHeight: '2.5rem', // Force 2 lines height (2 * line-height + small buffer)
-                        height: '2.5rem'
-                      }}>
-                        {conversation.title}
-                      </h3>
-
-                      {/* Stats */}
-                      <div className="flex items-center text-xs text-gray-400">
-                        <MessageCircle className="w-3 h-3 mr-1" />
-                        <span>{conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}</span>
+                    {/* Expanded menu section */}
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                      openDropdownId === conversation.id 
+                        ? 'max-h-28 opacity-100' 
+                        : 'max-h-0 opacity-0'
+                    }`}>
+                      <div className={`px-4 pb-4 pt-2 space-y-2 border-t border-gray-600 transition-all duration-300 ${
+                        openDropdownId === conversation.id 
+                          ? 'opacity-100 transform translate-y-0 delay-100' 
+                          : 'opacity-0 transform -translate-y-2 delay-0'
+                      }`}>
+                        {/* Additional model info */}
+                        <div className={`text-xs text-gray-400 transition-all duration-200 ${
+                          openDropdownId === conversation.id ? 'delay-150' : ''
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span>Created: {new Date(conversation.created_at).toLocaleDateString()}</span>
+                            <span>Updated: {formatDate(conversation.updated_at)}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className={`flex space-x-2 transition-all duration-200 ${
+                          openDropdownId === conversation.id ? 'delay-200' : ''
+                        }`}>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSelectedConversation(conversation);
+                              setIsInfoModalOpen(true);
+                              setOpenDropdownId(null);
+                            }}
+                            className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded px-2 py-1 transition-all duration-200 hover:transform hover:scale-105"
+                          >
+                            <Info className="h-3 w-3" />
+                            <span>Details</span>
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSelectedConversation(conversation);
+                              setIsDeleteModalOpen(true);
+                              setOpenDropdownId(null);
+                            }}
+                            className="flex items-center space-x-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded px-2 py-1 transition-all duration-200 hover:transform hover:scale-105"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </Card>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -261,6 +423,28 @@ const AllConversations: React.FC<AllConversationsProps> = ({ onSelectConversatio
           </div>
         </div>
       )}
+
+      {/* Conversation Info Modal */}
+      <ConversationInfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => {
+          setIsInfoModalOpen(false);
+          setSelectedConversation(null);
+        }}
+        conversation={selectedConversation}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSelectedConversation(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        conversation={selectedConversation}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

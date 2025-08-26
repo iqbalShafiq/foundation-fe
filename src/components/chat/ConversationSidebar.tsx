@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText, MoreVertical, Info, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { Conversation } from '../../types/chat';
 import { getSidebarCollapsedState, setSidebarCollapsedState } from '../../utils/sidebarStorage';
@@ -8,6 +8,9 @@ import UserProfile from './UserProfile';
 import SidebarButton from './SidebarButton';
 import SearchModal from './SearchModal';
 import GalleryModal from './GalleryModal';
+import ConversationInfoModal from './ConversationInfoModal';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import { Dropdown } from '../ui';
 
 interface ConversationSidebarProps {
   currentConversationId?: string;
@@ -26,17 +29,52 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   refreshTrigger,
   currentView = 'chat'
 }) => {
+  // Mark unused props to avoid linting errors
+  void onNewConversation;
+  void onShowAllConversations;
   const location = useLocation();
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [isCollapsed, setIsCollapsed] = useState(() => getSidebarCollapsedState());
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   useEffect(() => {
     loadConversations();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't close if clicking on the three-dot button or expanded content
+      if (target.closest('[data-conversation-menu]')) {
+        return;
+      }
+      // Don't close the current conversation menu
+      if (openDropdownId && openDropdownId !== currentConversationId) {
+        setOpenDropdownId(currentConversationId || null);
+      }
+    };
+
+    if (openDropdownId) {
+      // Use a small delay to prevent immediate closure
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdownId, currentConversationId]);
 
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
@@ -44,13 +82,20 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     }
   }, [refreshTrigger]);
 
+  // Auto-expand current conversation menu
+  useEffect(() => {
+    if (currentConversationId) {
+      setOpenDropdownId(currentConversationId);
+    }
+  }, [currentConversationId]);
+
   const loadConversations = async () => {
     try {
       setLoading(true);
       const data = await apiService.getConversations();
       setConversations(data);
       setError('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load conversations');
       console.error('Error loading conversations:', err);
     } finally {
@@ -62,6 +107,33 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     if (title.length <= maxLength) return title;
     return title.substring(0, maxLength) + '...';
   };
+
+
+  const handleConfirmDelete = async () => {
+    if (!selectedConversation) return;
+
+    try {
+      setIsDeleting(true);
+      await apiService.deleteConversation(selectedConversation.id);
+      
+      // Remove from local state
+      setConversations(prev => prev.filter(conv => conv.id !== selectedConversation.id));
+      
+      // Navigate away if we're currently viewing the deleted conversation
+      if (currentConversationId === selectedConversation.id) {
+        navigate('/');
+      }
+      
+      setIsDeleteModalOpen(false);
+      setSelectedConversation(null);
+    } catch (err: unknown) {
+      console.error('Error deleting conversation:', err);
+      setError('Failed to delete conversation');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
 
   if (loading) {
@@ -173,30 +245,85 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               /* Conversations List - This is the scrollable area */
               <div className="px-2 space-y-1 pb-4">
                 {conversations.map((conversation) => (
-                  <Link
+                  <div
                     key={conversation.id}
-                    to={`/conversation/${conversation.id}`}
-                    className={`group block w-full text-left px-3 py-2 rounded-lg transition-all duration-200 hover:bg-gray-800 ${
+                    className={`group w-full text-left rounded-lg transition-all duration-400 ease-in-out ${
                       currentConversationId === conversation.id
-                        ? 'bg-gray-800 border-l-2 border-blue-500'
+                        ? 'bg-gray-800 border-l-2 border-blue-500 shadow-lg transform scale-[1.02]'
                         : ''
-                    }`}
-                    title={`${conversation.title} (${conversation.model_type})`}
+                    } ${openDropdownId === conversation.id && currentConversationId !== conversation.id ? 'bg-gray-800 shadow-lg transform scale-[1.02]' : ''} ${currentConversationId !== conversation.id ? 'hover:bg-gray-800 hover:shadow-md' : ''}`}
+                    data-conversation-menu
                   >
-                    <div className="flex items-center justify-between">
-                      <p className={`text-sm font-medium text-gray-200 truncate flex-1 whitespace-nowrap transition-opacity duration-300 ${
-                        isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
-                      }`}>
-                        {truncateTitle(conversation.title)}
-                      </p>
-                      {/* Model shown on hover */}
-                      <span className={`opacity-0 group-hover:opacity-100 text-xs text-gray-400 ml-2 transition-opacity duration-200 flex-shrink-0 whitespace-nowrap ${
-                        isCollapsed ? 'opacity-0 pointer-events-none' : ''
-                      }`}>
-                        {conversation.model_type}
-                      </span>
+                    {/* Main conversation row */}
+                    <div className="relative px-3 py-2 flex items-center justify-between">
+                      <Link
+                        to={`/conversation/${conversation.id}`}
+                        className="flex-1 min-w-0"
+                        title={`${conversation.title} (${conversation.model_type})`}
+                      >
+                        <p className={`text-sm font-medium text-gray-200 truncate transition-opacity duration-300 ${
+                          isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
+                        }`}>
+                          {truncateTitle(conversation.title)}
+                        </p>
+                      </Link>
+                      
+                      {/* Three-dot menu button - hidden for current conversation */}
+                      {!isCollapsed && currentConversationId !== conversation.id && (
+                        <button
+                          className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenDropdownId(openDropdownId === conversation.id ? null : conversation.id);
+                          }}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
-                  </Link>
+
+                    {/* Expanded menu section - always expanded for current conversation */}
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                      openDropdownId === conversation.id || currentConversationId === conversation.id
+                        ? 'max-h-32 opacity-100 transform translate-y-0' 
+                        : 'max-h-0 opacity-0 transform -translate-y-2'
+                    }`}>
+                      <div className={`px-3 pb-3 space-y-2 transition-all duration-300 delay-75 ${
+                        openDropdownId === conversation.id || currentConversationId === conversation.id
+                          ? 'opacity-100 transform translate-y-0' 
+                          : 'opacity-0 transform -translate-y-1'
+                      }`}>
+                        {/* Model info */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-700/50 rounded-md px-2 py-1 transition-all duration-200 hover:bg-gray-700/70 flex-1">
+                            <Bot className="h-3 w-3 text-blue-400" />
+                            <span>Model: {conversation.model_type}</span>
+                          </div>
+                          {currentConversationId === conversation.id && (
+                            <div className="ml-2 px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-md border border-blue-600/30">
+                              Current
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedConversation(conversation);
+                            setIsDeleteModalOpen(true);
+                            setOpenDropdownId(null);
+                          }}
+                          className="flex items-center space-x-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md px-2 py-1 w-full text-left transition-all duration-200 hover:transform hover:scale-105"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete Conversation</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -221,6 +348,28 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         isOpen={isGalleryModalOpen}
         onClose={() => setIsGalleryModalOpen(false)}
         onSelectConversation={onSelectConversation}
+      />
+
+      {/* Conversation Info Modal */}
+      <ConversationInfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => {
+          setIsInfoModalOpen(false);
+          setSelectedConversation(null);
+        }}
+        conversation={selectedConversation}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSelectedConversation(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        conversation={selectedConversation}
+        isDeleting={isDeleting}
       />
     </div>
   );
