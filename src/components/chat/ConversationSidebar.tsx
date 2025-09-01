@@ -87,6 +87,9 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   useEffect(() => {
     if (currentConversationId) {
       setOpenDropdownId(currentConversationId);
+    } else {
+      // Reset dropdown when no conversation is selected (new conversation)
+      setOpenDropdownId(null);
     }
   }, [currentConversationId]);
 
