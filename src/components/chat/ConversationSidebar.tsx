@@ -255,10 +255,10 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     data-conversation-menu
                   >
                     {/* Main conversation row */}
-                    <div className="relative px-3 py-2 flex items-center justify-between">
+                    <div className="relative flex items-center justify-between">
                       <Link
                         to={`/conversation/${conversation.id}`}
-                        className="flex-1 min-w-0"
+                        className="flex-1 min-w-0 px-3 py-2 cursor-pointer"
                         title={`${conversation.title} (${conversation.model_type})`}
                       >
                         <p className={`text-sm font-medium text-gray-200 truncate transition-opacity duration-300 ${
@@ -271,7 +271,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                       {/* Three-dot menu button - hidden for current conversation */}
                       {!isCollapsed && currentConversationId !== conversation.id && (
                         <button
-                          className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+                          className="p-1 mr-3 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();

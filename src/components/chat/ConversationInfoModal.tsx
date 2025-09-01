@@ -1,5 +1,5 @@
-import React from 'react';
-import { Info, Calendar, MessageCircle, Bot, Clock, User as UserIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Info, User as UserIcon, Copy, Check } from 'lucide-react';
 import { Modal } from '../ui';
 import { Conversation } from '../../types/chat';
 
@@ -14,6 +14,8 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
   onClose,
   conversation
 }) => {
+  const [copied, setCopied] = useState(false);
+  
   if (!conversation) return null;
 
   const formatDate = (dateString: string) => {
@@ -41,6 +43,16 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
     return `${Math.floor(diffInDays / 365)} years ago`;
   };
 
+  const handleCopyId = async () => {
+    try {
+      await navigator.clipboard.writeText(conversation.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Conversation Information">
       <div className="space-y-6">
@@ -55,19 +67,16 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
           <div className="space-y-4">
             {/* Model Type */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <Bot className="h-4 w-4 text-blue-400" />
-                <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">Model</h4>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Model</h4>
+              <div>
+                <p className="text-gray-100">{conversation.model_type}</p>
+                <p className="text-gray-400 text-sm">AI Assistant</p>
               </div>
-              <p className="text-gray-100">{conversation.model_type}</p>
             </div>
 
             {/* Message Count */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <MessageCircle className="h-4 w-4 text-green-400" />
-                <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">Messages</h4>
-              </div>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Messages</h4>
               <p className="text-gray-100">
                 {conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}
               </p>
@@ -77,10 +86,7 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
           <div className="space-y-4">
             {/* Created Date */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <Calendar className="h-4 w-4 text-purple-400" />
-                <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">Created</h4>
-              </div>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Created</h4>
               <div>
                 <p className="text-gray-100">{formatRelativeDate(conversation.created_at)}</p>
                 <p className="text-gray-400 text-sm">{formatDate(conversation.created_at)}</p>
@@ -89,10 +95,7 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
 
             {/* Last Updated */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <Clock className="h-4 w-4 text-yellow-400" />
-                <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">Last Updated</h4>
-              </div>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Last Updated</h4>
               <div>
                 <p className="text-gray-100">{formatRelativeDate(conversation.updated_at)}</p>
                 <p className="text-gray-400 text-sm">{formatDate(conversation.updated_at)}</p>
@@ -118,7 +121,20 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
             <Info className="h-4 w-4 text-gray-400" />
             <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">Conversation ID</h4>
           </div>
-          <p className="text-gray-100 font-mono text-sm break-all">{conversation.id}</p>
+          <div className="flex items-center space-x-2 group">
+            <p className="text-gray-100 font-mono text-sm break-all flex-1">{conversation.id}</p>
+            <button
+              onClick={handleCopyId}
+              className="flex-shrink-0 p-1 rounded hover:bg-gray-600 transition-colors duration-200"
+              title="Copy conversation ID"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-400" />
+              ) : (
+                <Copy className="h-4 w-4 text-gray-400 hover:text-gray-200" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>
