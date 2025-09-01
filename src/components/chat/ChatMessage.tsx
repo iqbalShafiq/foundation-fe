@@ -87,6 +87,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     }
   };
 
+
   // Clean up content to fix list spacing issues
   const cleanContent = (content: string) => {
     // Fix numbered lists: replace \n\n after numbered items with just \n
@@ -102,10 +103,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       {message.isUser ? (
         // User message layout: [flex-grow] [Message Content with Edit Button] [Avatar]  
         <>
-          <div className="flex-1"></div>
-          
           {/* Message content with edit button */}
-          <div className="max-w-4xl flex flex-col items-end">            
+          <div className="flex-1 flex justify-end mr-3">
+            <div className="max-w-[85%] flex flex-col items-end">            
             {/* Message content container */}
             <div className="flex flex-col items-end w-full">
             {/* Display images above message content */}
@@ -132,7 +132,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
             
             {/* Message bubble */}
-            <div className="relative max-w-4xl px-5 py-3 bg-blue-600 text-white rounded-2xl rounded-tr-md shadow-md">
+            <div className="relative max-w-fit px-5 py-3 bg-blue-600 text-white rounded-2xl rounded-tr-md shadow-md">
               {/* Edit button positioned relative to this bubble */}
               {message.messageId && onEditMessage && (
                 <button
@@ -226,6 +226,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               />
             )}
             </div>
+            </div>
           </div>
           
           {/* Avatar */}
@@ -243,6 +244,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           
           {/* Message content */}
           <div className="mr-3">
+            <div className="max-w-[85%]">
             {/* Display images above message content */}
             {message.imageUrls && message.imageUrls.length > 0 && (
               <div className="mb-2">
@@ -268,7 +270,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             
             {/* Render chart if message type is chart */}
             {message.type === 'chart' ? (
-              <div className="w-full max-w-4xl space-y-4">
+              <div className="w-full space-y-4">
                 <PlotlyChart data={message.content} />
                 
                 {(() => {
@@ -279,7 +281,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                     
                     if (parsedContent.text_content && parsedContent.text_content.trim()) {
                       return (
-                        <div className="px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md max-w-4xl">
+                        <div className="px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md max-w-fit">
                           <div className="prose prose-sm max-w-none break-words text-gray-100">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
@@ -350,7 +352,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 })()}
               </div>
             ) : (
-              <div className="px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md max-w-4xl">
+              <div className="px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md max-w-fit">
                 <div className="prose prose-sm max-w-none break-words text-gray-100">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -547,6 +549,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 onClick={() => message.messageId && onShowBranches?.(message.messageId.toString())}
               />
             )}
+            </div>
           </div>
           
           <div className="flex-1"></div>
