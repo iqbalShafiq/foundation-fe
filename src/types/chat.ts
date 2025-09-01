@@ -29,6 +29,11 @@ export type ChatMessage = {
   output_tokens?: number | null;     // Output/completion tokens  
   total_tokens?: number | null;      // Total tokens used
   model_cost?: number | null;        // Cost in USD (optional)
+  // Branch feature fields
+  parentMessageId?: number | null; // ID of parent message for branching
+  branchId?: string | null;         // Unique branch identifier
+  isActiveBranch?: boolean;        // Whether this message is part of the active branch
+  hasBranches?: boolean;            // Whether this message has alternative branches
 };
 
 export type StreamChunk = {
@@ -100,6 +105,11 @@ export type Message = {
   total_tokens?: number | null;      // Total tokens used
   model_cost?: number | null;        // Cost in USD (optional)
   created_at: string;
+  // Branch feature fields
+  parent_message_id?: number | null; // ID of parent message for branching
+  branch_id?: string | null;         // Unique branch identifier
+  is_active_branch?: boolean;        // Whether this message is part of the active branch
+  has_branches?: boolean;            // Whether this message has alternative branches
 };
 
 export type ConversationDetail = {
@@ -126,4 +136,25 @@ export type FeedbackResponse = {
   feedback_type: FeedbackType;
   description?: string;
   created_at: string;
+};
+
+// Branch management types
+export type EditMessageRequest = {
+  content: string;
+};
+
+export type EditMessageResponse = {
+  message: Message;
+  new_branch_id: string;
+};
+
+export type Branch = {
+  branch_id: string;
+  created_at: string;
+  message_count: number;
+  is_active: boolean;
+};
+
+export type BranchesResponse = {
+  branches: Branch[];
 };

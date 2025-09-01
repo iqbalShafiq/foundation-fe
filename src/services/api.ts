@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { LoginRequest, RegisterRequest, AuthResponse, User } from '../types/auth';
-import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse } from '../types/chat';
+import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse, EditMessageRequest, EditMessageResponse, BranchesResponse } from '../types/chat';
 import { UserPreferences, UserPreferencesUpdate } from '../types/preferences';
 import { GalleryResponse } from '../types/gallery';
 import { 
@@ -290,6 +290,21 @@ class ApiService {
 
   async deleteCollection(collectionId: string): Promise<void> {
     await this.api.delete(`/documents/collections/${collectionId}`);
+  }
+
+  // Branch management methods
+  async editMessage(messageId: string, content: string): Promise<EditMessageResponse> {
+    const response = await this.api.put<EditMessageResponse>(`/messages/${messageId}`, { content });
+    return response.data;
+  }
+
+  async getConversationBranches(conversationId: string): Promise<BranchesResponse> {
+    const response = await this.api.get<BranchesResponse>(`/conversations/${conversationId}/branches`);
+    return response.data;
+  }
+
+  async activateBranch(conversationId: string, branchId: string): Promise<void> {
+    await this.api.post(`/conversations/${conversationId}/branches/${branchId}/activate`);
   }
 }
 

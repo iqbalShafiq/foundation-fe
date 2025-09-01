@@ -1,0 +1,550 @@
+import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import { ChatMessage as ChatMessageType, FeedbackType } from '../../types/chat';
+import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, Edit3 } from 'lucide-react';
+import FeedbackModal from './FeedbackModal';
+import { DocumentContextIndicator } from './DocumentContextIndicator';
+import { ImageViewer } from '../ui';
+import BranchIndicator from './BranchIndicator';
+import { apiService } from '../../services/api';
+import { getImageUrl } from '../../utils/imageUrl';
+import PlotlyChart from './PlotlyChart';
+
+interface ChatMessageProps {
+  message: ChatMessageType;
+  conversationImages?: string[];
+  onAddDocumentToContext?: (documentId: string) => void;
+  onRemoveDocumentFromContext?: (documentId: string) => void;
+  selectedDocuments?: string[];
+  nextMessage?: ChatMessageType; // Next message to get input_tokens for human messages
+  onEditMessage?: (messageId: string) => void;
+  onShowBranches?: (messageId: string) => void;
+}
+
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext, onRemoveDocumentFromContext, selectedDocuments = [], nextMessage, onEditMessage, onShowBranches }) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [userFeedback, setUserFeedback] = useState<FeedbackType | null>(null);
+  const [selectedFeedbackType, setSelectedFeedbackType] = useState<FeedbackType>('like');
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  const handleFeedbackClick = (feedbackType: FeedbackType) => {
+    if (!message.messageId) {
+      console.error('No message ID available for feedback');
+      return;
+    }
+    
+    setSelectedFeedbackType(feedbackType);
+    setShowFeedbackModal(true);
+  };
+
+  const handleFeedbackSubmit = async (feedbackType: FeedbackType, description?: string) => {
+    if (!message.messageId) {
+      throw new Error('No message ID available for feedback');
+    }
+
+    try {
+      await apiService.createFeedback({
+        message_id: message.messageId,
+        feedback_type: feedbackType,
+        description,
+      });
+      
+      setUserFeedback(feedbackType);
+      setShowFeedbackModal(false);
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      throw error;
+    }
+  };
+
+  const handleEditClick = () => {
+    if (message.messageId && onEditMessage) {
+      onEditMessage(message.messageId.toString());
+    }
+  };
+
+  // Clean up content to fix list spacing issues
+  const cleanContent = (content: string) => {
+    // Fix numbered lists: replace \n\n after numbered items with just \n
+    return content.replace(/(\d+\.\s.*?)\n\n/g, '$1\n');
+  };
+
+  return (
+    <div 
+      className={`flex items-start py-3 group`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {message.isUser ? (
+        // User message layout: Edit button - Message content - Avatar (right to left)
+        <>
+          <div className="flex-1 flex justify-end items-start">
+            <div className="flex items-center space-x-3">
+              {/* Edit button for human messages - positioned on the left of bubble */}
+              {isHovered && message.messageId && onEditMessage && (
+                <button
+                  onClick={handleEditClick}
+                  className="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-gray-200 flex items-center justify-center border border-gray-600 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  style={{ 
+                    transition: 'opacity 200ms ease-in-out, transform 200ms ease-in-out',
+                    transform: isHovered ? 'scale(1)' : 'scale(0.9)'
+                  }}
+                  title="Edit message"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+              )}
+              
+              {/* Message content container */}
+              <div className="max-w-3xl flex flex-col items-end">
+        {/* Display images above message content */}
+        {message.imageUrls && message.imageUrls.length > 0 && (
+          <div className={`mb-2 ${message.isUser ? 'flex justify-end' : ''}`}>
+            <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'}`}>
+              <div className="flex flex-wrap gap-2">
+                {message.imageUrls.map((imageUrl, index) => (
+                  <img
+                    key={index}
+                    src={getImageUrl(imageUrl)}
+                    alt={`Attachment ${index + 1}`}
+                    className="max-w-xs max-h-64 object-cover rounded-lg border border-gray-600 shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                    onClick={() => {
+                      const imageIndex = conversationImages.indexOf(imageUrl);
+                      setSelectedImageIndex(imageIndex >= 0 ? imageIndex : 0);
+                      setImageViewerOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Render chart if message type is chart */}
+        {message.type === 'chart' ? (
+          <div className="w-full max-w-4xl space-y-4">
+            {/* Extract and display chart */}
+            <PlotlyChart data={message.content} />
+            
+            {/* Display text content if available */}
+            {(() => {
+              try {
+                const parsedContent = typeof message.content === 'string' 
+                  ? JSON.parse(message.content) 
+                  : message.content;
+                
+                if (parsedContent.text_content && parsedContent.text_content.trim()) {
+                  return (
+                    <div className="inline-block px-5 py-3 bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md shadow-md">
+                      <div className={`prose prose-sm max-w-none break-words text-gray-100`}>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeHighlight]}
+                          components={{
+                            // Override default styling for better chat bubble appearance
+                            p: ({ children, node }) => {
+                              // Check if this paragraph is inside a list item
+                              const isInListItem = (node as any)?.parent?.tagName === 'li';
+                              return (
+                                <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                                  {children}
+                                </p>
+                              );
+                            },
+                            h1: ({ children }) => <h1 className={`text-lg font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h1>,
+                            h2: ({ children }) => <h2 className={`text-base font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h2>,
+                            h3: ({ children }) => <h3 className={`text-sm font-bold mt-2 mb-1 first:mt-0 text-gray-100`}>{children}</h3>,
+                            ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
+                            ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
+                            blockquote: ({ children }) => (
+                              <blockquote className={`border-l-2 pl-3 my-2 first:mt-0 last:mb-0 border-blue-400`}>
+                                {children}
+                              </blockquote>
+                            ),
+                            code: ({ inline, children, ...props }: any) => {
+                              if (inline) {
+                                return (
+                                  <code
+                                    className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-600 text-gray-200"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return (
+                                <code
+                                  className="block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 bg-gray-900 text-gray-100"
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              );
+                            },
+                            pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            a: ({ children, href }) => (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:no-underline text-blue-400"
+                              >
+                                {children}
+                              </a>
+                            ),
+                            hr: () => (
+                              <hr className="my-3 border-0 h-px bg-gray-600" />
+                            ),
+                            table: ({ children }) => (
+                              <div className="overflow-x-auto my-2 first:mt-0 last:mb-0">
+                                <table className="min-w-full border border-gray-600">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            thead: ({ children }) => (
+                              <thead className="bg-gray-600">
+                                {children}
+                              </thead>
+                            ),
+                            th: ({ children }) => (
+                              <th className="px-3 py-2 text-left font-semibold border border-gray-600">
+                                {children}
+                              </th>
+                            ),
+                            td: ({ children }) => (
+                              <td className="px-3 py-2 border border-gray-600">
+                                {children}
+                              </td>
+                            ),
+                          }}
+                        >
+                          {cleanContent(parsedContent.text_content)}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              } catch (e) {
+                return null;
+              }
+            })()}
+          </div>
+        ) : (
+          <div className={`${message.isUser ? 'max-w-fit' : 'inline-block'} px-5 py-3 shadow-md ${
+            message.isUser
+              ? 'bg-blue-600 text-white rounded-2xl rounded-tr-md'
+              : 'bg-gray-700 text-gray-100 rounded-2xl rounded-tl-md'
+          }`}>
+            <div className={`prose prose-sm max-w-none break-words ${message.isUser ? 'text-white' : 'text-gray-100'}`}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  // Override default styling for better chat bubble appearance
+                  p: ({ children, node }) => {
+                    // Check if this paragraph is inside a list item
+                    const isInListItem = (node as any)?.parent?.tagName === 'li';
+                    return (
+                      <p className={`m-0 leading-relaxed ${isInListItem ? 'whitespace-normal' : 'whitespace-pre-wrap'}`}>
+                        {children}
+                      </p>
+                    );
+                  },
+                  h1: ({ children }) => <h1 className={`text-lg font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h1>,
+                  h2: ({ children }) => <h2 className={`text-base font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h2>,
+                  h3: ({ children }) => <h3 className={`text-sm font-bold mt-2 mb-1 first:mt-0 ${message.isUser ? 'text-white' : 'text-gray-100'}`}>{children}</h3>,
+                  ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0 list-disc list-outside space-y-0">{children}</ul>,
+                  ol: ({ children }) => <ol className="my-2 pl-6 first:mt-0 last:mb-0 list-decimal list-outside space-y-0">{children}</ol>,
+                  li: ({ children }) => <li className="leading-relaxed [&>p]:m-0 [&>p]:leading-relaxed">{children}</li>,
+                  blockquote: ({ children }) => (
+                    <blockquote className={`border-l-2 pl-3 my-2 first:mt-0 last:mb-0 ${
+                      message.isUser ? 'border-white/30' : 'border-blue-400'
+                    }`}>
+                      {children}
+                    </blockquote>
+                  ),
+                  code: ({ inline, children, ...props }: any) => {
+                    if (inline) {
+                      return (
+                        <code
+                          className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+                            message.isUser 
+                              ? 'bg-white/20 text-white' 
+                              : 'bg-gray-600 text-gray-200'
+                          }`}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    }
+                    return (
+                      <code
+                        className={`block p-3 rounded-md text-xs font-mono overflow-x-auto my-2 first:mt-0 last:mb-0 ${
+                          message.isUser
+                            ? 'bg-white/10 text-white'
+                            : 'bg-gray-900 text-gray-100'
+                        }`}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                  pre: ({ children }) => <div className="my-2 first:mt-0 last:mb-0">{children}</div>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  a: ({ children, href }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`underline hover:no-underline ${
+                        message.isUser ? 'text-white' : 'text-blue-400'
+                      }`}
+                    >
+                      {children}
+                    </a>
+                  ),
+                  hr: () => (
+                    <hr className={`my-3 border-0 h-px ${
+                      message.isUser ? 'bg-white/20' : 'bg-gray-600'
+                    }`} />
+                  ),
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-2 first:mt-0 last:mb-0">
+                      <table className={`min-w-full border ${
+                        message.isUser ? 'border-white/30' : 'border-gray-600'
+                      }`}>
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  thead: ({ children }) => (
+                    <thead className={message.isUser ? 'bg-white/10' : 'bg-gray-600'}>
+                      {children}
+                    </thead>
+                  ),
+                  th: ({ children }) => (
+                    <th className={`px-3 py-2 text-left font-semibold border ${
+                      message.isUser ? 'border-white/30' : 'border-gray-600'
+                    }`}>
+                      {children}
+                    </th>
+                  ),
+                  td: ({ children }) => (
+                    <td className={`px-3 py-2 border ${
+                      message.isUser ? 'border-white/30' : 'border-gray-600'
+                    }`}>
+                      {children}
+                    </td>
+                  ),
+                }}
+              >
+                {cleanContent(message.content)}
+              </ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        {/* Show thinking/reasoning content for React Agent responses (CSV/Excel analysis) */}
+        {!message.isUser && (message.thinkingContent || message.reasoningContent) && (
+          <div className="mt-2 space-y-2">
+            {message.thinkingContent && (
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors duration-200 flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full opacity-60"></span>
+                  <span>Show thinking process</span>
+                  <span className="group-open:rotate-90 transition-transform duration-200">▶</span>
+                </summary>
+                <div className="mt-2 px-3 py-2 bg-gray-800 rounded-md border border-gray-600">
+                  <div className="text-xs text-gray-300 whitespace-pre-wrap">
+                    {message.thinkingContent}
+                  </div>
+                </div>
+              </details>
+            )}
+            {message.reasoningContent && (
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors duration-200 flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full opacity-60"></span>
+                  <span>Show reasoning process</span>
+                  <span className="group-open:rotate-90 transition-transform duration-200">▶</span>
+                </summary>
+                <div className="mt-2 px-3 py-2 bg-gray-800 rounded-md border border-gray-600">
+                  <div className="text-xs text-gray-300 whitespace-pre-wrap">
+                    {message.reasoningContent}
+                  </div>
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Document Context Indicator */}
+        {message.documentContext && (
+          <DocumentContextIndicator 
+            documentContext={message.documentContext} 
+            variant="full"
+            onAddToContext={onAddDocumentToContext}
+            onRemoveFromContext={onRemoveDocumentFromContext}
+            selectedDocuments={selectedDocuments}
+          />
+        )}
+
+        {/* Context Sources */}
+        {!message.isUser && message.contextSources && message.contextSources.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-600">
+            <div className="text-xs text-gray-400 mb-2">Sources:</div>
+            <div className="space-y-1">
+              {message.contextSources.map((source, index) => (
+                <div
+                  key={index}
+                  className="flex items-center space-x-2 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  <FileText className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate flex-1">{source.document_name}</span>
+                  {source.page_number && (
+                    <span className="text-gray-500">p.{source.page_number}</span>
+                  )}
+                  <span className="text-gray-500">
+                    {Math.round(source.relevance_score * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className={`flex items-center mt-2 text-xs text-gray-400 ${
+          message.isUser ? 'justify-end' : 'justify-start'
+        }`}>
+          <span>
+            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {message.model && !message.isUser && (
+            <>
+              <span className="mx-1">•</span>
+              <span>{message.model}</span>
+            </>
+          )}
+          {/* Display input_tokens for human messages from the next AI message */}
+          {message.isUser && nextMessage && !nextMessage.isUser && nextMessage.input_tokens != null && nextMessage.input_tokens > 0 && (
+            <>
+              <span className="mx-1">•</span>
+              <span className="text-blue-400">{nextMessage.input_tokens} tokens</span>
+            </>
+          )}
+          {!message.isUser && message.output_tokens != null && message.output_tokens > 0 && (
+            <>
+              <span className="mx-1">•</span>
+              <span className="text-blue-400">{message.output_tokens} tokens</span>
+              {message.model_cost != null && message.model_cost > 0 && (
+                <>
+                  <span className="mx-1">•</span>
+                  <span className="text-green-400">${message.model_cost.toFixed(4)}</span>
+                </>
+              )}
+            </>
+          )}
+          {!message.isUser && (
+            <>
+              <button
+                onClick={handleCopy}
+                className={`ml-2 transition-colors duration-200 ${
+                  isCopied 
+                    ? 'text-green-400' 
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title={isCopied ? "Copied!" : "Copy message"}
+              >
+                {isCopied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </button>
+              
+              {message.messageId && (
+                <>
+                  <button
+                    onClick={() => handleFeedbackClick('like')}
+                    className={`ml-2 transition-colors duration-200 ${
+                      userFeedback === 'like'
+                        ? 'text-green-400'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Helpful"
+                  >
+                    <ThumbsUp className="h-3 w-3" />
+                  </button>
+                  
+                  <button
+                    onClick={() => handleFeedbackClick('dislike')}
+                    className={`ml-2 transition-colors duration-200 ${
+                      userFeedback === 'dislike'
+                        ? 'text-red-400'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Not helpful"
+                  >
+                    <ThumbsDown className="h-3 w-3" />
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Branch Indicator */}
+        {(message.hasBranches || message.branchId) && (
+          <BranchIndicator
+            hasBranches={message.hasBranches}
+            branchId={message.branchId}
+            isActiveBranch={message.isActiveBranch}
+            onClick={() => message.messageId && onShowBranches?.(message.messageId.toString())}
+          />
+        )}
+      </div>
+      
+      {!message.isUser && message.messageId && (
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={handleFeedbackSubmit}
+          initialFeedbackType={selectedFeedbackType}
+        />
+      )}
+      
+      {/* Image Viewer */}
+      <ImageViewer
+        isOpen={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        images={conversationImages}
+        initialIndex={selectedImageIndex}
+      />
+    </div>
+  );
+};
+
+export default ChatMessage;

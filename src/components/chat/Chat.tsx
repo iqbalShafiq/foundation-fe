@@ -16,6 +16,7 @@ import AnsweringIndicator from "./AnsweringIndicator";
 import ConversationSidebar from "./ConversationSidebar";
 import AllConversations from "./AllConversations";
 import PlotlyChart from "./PlotlyChart";
+import EditMessageModal from "./EditMessageModal";
 
 const Chat: React.FC = () => {
   const { id: conversationId } = useParams<{ id: string }>();
@@ -36,6 +37,8 @@ const Chat: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
   const [preservedContext, setPreservedContext] = useState<{documents: string[], collection?: string} | null>(null);
   const [isNewConversationNavigation, setIsNewConversationNavigation] = useState(false);
+  const [editMessageModal, setEditMessageModal] = useState<{isOpen: boolean, messageId: string, content: string}>({isOpen: false, messageId: '', content: ''});
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
   const previousConversationId = useRef<string | undefined>(conversationId);
@@ -145,6 +148,7 @@ const Chat: React.FC = () => {
   };
 
   const loadConversation = async (conversationId: string) => {
+    console.log('Loading conversation:', conversationId);
     setCurrentStreamContent("");
     setCurrentChartContent(null);
     setCurrentThinkingContent("");
@@ -161,6 +165,7 @@ const Chat: React.FC = () => {
     try {
       // Load conversation details with message history
       const conversationDetail = await apiService.getConversationDetail(conversationId);
+      console.log('Conversation detail loaded:', conversationDetail);
       
       // Set conversation title
       setCurrentConversationTitle(conversationDetail.title);
@@ -228,13 +233,18 @@ const Chat: React.FC = () => {
           isUser: msg.role === 'user',
           timestamp: new Date(msg.created_at),
           model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
-          messageId: msg.role === 'assistant' ? msg.id : undefined,
+          messageId: msg.role === 'user' ? msg.id : (msg.role === 'assistant' ? msg.id : undefined),
           imageUrls: msg.image_urls || undefined,
           documentContext: msg.document_context,
           input_tokens: msg.input_tokens,
           output_tokens: msg.output_tokens,
           total_tokens: msg.total_tokens,
           model_cost: msg.model_cost,
+          // Branch fields
+          parentMessageId: msg.parent_message_id,
+          branchId: msg.branch_id,
+          isActiveBranch: msg.is_active_branch,
+          hasBranches: msg.has_branches,
         };
       });
       
@@ -272,6 +282,7 @@ const Chat: React.FC = () => {
       }, 100);
     } catch (error) {
       console.error('Error loading conversation:', error);
+      console.error('Error details:', error);
       // Clear messages on error
       setMessages([]);
       
@@ -545,13 +556,18 @@ const Chat: React.FC = () => {
                   isUser: msg.role === 'user',
                   timestamp: new Date(msg.created_at),
                   model: msg.role === 'assistant' ? conversationDetail.model_type as ModelType : undefined,
-                  messageId: msg.role === 'assistant' ? msg.id : undefined,
+                  messageId: msg.role === 'user' ? msg.id : (msg.role === 'assistant' ? msg.id : undefined),
                   imageUrls: msg.image_urls || undefined,
                   documentContext: msg.document_context,
                   input_tokens: msg.input_tokens,
                   output_tokens: msg.output_tokens,
                   total_tokens: msg.total_tokens,
                   model_cost: msg.model_cost,
+                  // Branch fields
+                  parentMessageId: msg.parent_message_id,
+                  branchId: msg.branch_id,
+                  isActiveBranch: msg.is_active_branch,
+                  hasBranches: msg.has_branches,
                 };
               });
               setMessages(updatedMessages);
@@ -626,6 +642,52 @@ const Chat: React.FC = () => {
     chatInputRef.current?.focus();
   };
 
+  const handleEditMessage = (messageId: string) => {
+    // Find the message to edit
+    const messageToEdit = messages.find(msg => msg.messageId?.toString() === messageId);
+    if (messageToEdit && messageToEdit.isUser) {
+      setEditMessageModal({
+        isOpen: true,
+        messageId: messageId,
+        content: messageToEdit.content
+      });
+    }
+  };
+
+  const handleEditMessageSubmit = async (newContent: string) => {
+    if (!editMessageModal.messageId || !conversationId) return;
+
+    setIsEditingMessage(true);
+    try {
+      // Call the API to edit the message and create a new branch
+      const response = await apiService.editMessage(editMessageModal.messageId, newContent);
+      
+      // Refresh the conversation to load the new branch
+      await loadConversation(conversationId);
+      
+      // Show success feedback
+      console.log('Message edited successfully, new branch created:', response.new_branch_id);
+      
+      // Trigger sidebar refresh to show updated conversation
+      setSidebarRefreshTrigger(prev => prev + 1);
+      
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+      throw error; // Re-throw to let the modal handle the error
+    } finally {
+      setIsEditingMessage(false);
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setEditMessageModal({isOpen: false, messageId: '', content: ''});
+  };
+
+  const handleShowBranches = (messageId: string) => {
+    // TODO: Implement branch viewer/selector modal
+    console.log('Show branches for message:', messageId);
+  };
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
@@ -681,6 +743,8 @@ const Chat: React.FC = () => {
                         onRemoveDocumentFromContext={handleRemoveDocumentFromContext}
                         selectedDocuments={selectedDocuments}
                         nextMessage={index < messages.length - 1 ? messages[index + 1] : undefined}
+                        onEditMessage={handleEditMessage}
+                        onShowBranches={handleShowBranches}
                       />
                     ));
                   })()}
@@ -839,6 +903,15 @@ const Chat: React.FC = () => {
         </div>
         </div>
       )}
+
+      {/* Edit Message Modal */}
+      <EditMessageModal
+        isOpen={editMessageModal.isOpen}
+        onClose={handleCloseEditModal}
+        onSubmit={handleEditMessageSubmit}
+        originalContent={editMessageModal.content}
+        isLoading={isEditingMessage}
+      />
     </div>
   );
 };
