@@ -146,9 +146,10 @@ export type EditMessageRequest = {
 };
 
 export type EditMessageResponse = {
-  message: Message;
+  message_id: number;
   new_branch_id: string;
-  new_conversation_id?: string;
+  conversation_id: string;
+  regenerated_messages: Message[];
 };
 
 export type Branch = {
