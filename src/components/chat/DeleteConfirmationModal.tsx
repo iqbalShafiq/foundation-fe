@@ -72,7 +72,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
           <Button
             variant="outline"
             onClick={onConfirm}
-            className="flex-1 bg-red-600 hover:bg-red-700 border-red-600 hover:border-red-700 text-white"
+            className="flex-1 !bg-red-600 hover:!bg-red-700 !border-red-600 hover:!border-red-700 !text-white focus:!ring-red-500"
             loading={isDeleting}
             icon={Trash2}
             iconPosition="left"

@@ -424,6 +424,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
               <span>{message.model}</span>
             </>
           )}
+          {!message.isUser && message.total_tokens != null && message.total_tokens > 0 && (
+            <>
+              <span className="mx-1">•</span>
+              <span className="text-blue-400">{message.total_tokens} tokens</span>
+              {message.model_cost != null && message.model_cost > 0 && (
+                <>
+                  <span className="mx-1">•</span>
+                  <span className="text-green-400">${message.model_cost.toFixed(4)}</span>
+                </>
+              )}
+            </>
+          )}
           {!message.isUser && (
             <>
               <button

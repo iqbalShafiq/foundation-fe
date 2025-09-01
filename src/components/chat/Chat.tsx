@@ -231,6 +231,10 @@ const Chat: React.FC = () => {
           messageId: msg.role === 'assistant' ? msg.id : undefined,
           imageUrls: msg.image_urls || undefined,
           documentContext: msg.document_context,
+          input_tokens: msg.input_tokens,
+          output_tokens: msg.output_tokens,
+          total_tokens: msg.total_tokens,
+          model_cost: msg.model_cost,
         };
       });
       
@@ -544,6 +548,10 @@ const Chat: React.FC = () => {
                   messageId: msg.role === 'assistant' ? msg.id : undefined,
                   imageUrls: msg.image_urls || undefined,
                   documentContext: msg.document_context,
+                  input_tokens: msg.input_tokens,
+                  output_tokens: msg.output_tokens,
+                  total_tokens: msg.total_tokens,
+                  model_cost: msg.model_cost,
                 };
               });
               setMessages(updatedMessages);
