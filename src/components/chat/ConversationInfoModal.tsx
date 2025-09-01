@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Info, User as UserIcon, Copy, Check } from 'lucide-react';
 import { Modal } from '../ui';
-import { Conversation } from '../../types/chat';
+import { Conversation, ConversationDetail } from '../../types/chat';
+import { apiService } from '../../services/api';
 
 interface ConversationInfoModalProps {
   isOpen: boolean;
@@ -15,7 +16,37 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
   conversation
 }) => {
   const [copied, setCopied] = useState(false);
-  
+  const [conversationDetail, setConversationDetail] = useState<ConversationDetail | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Fetch conversation details when modal opens
+  useEffect(() => {
+    if (isOpen && conversation && !conversationDetail) {
+      setLoadingDetails(true);
+      apiService.getConversationDetail(conversation.id)
+        .then(setConversationDetail)
+        .catch(console.error)
+        .finally(() => setLoadingDetails(false));
+    }
+  }, [isOpen, conversation, conversationDetail]);
+
+  // Reset conversation detail when modal closes or conversation changes
+  useEffect(() => {
+    if (!isOpen) {
+      setConversationDetail(null);
+    }
+  }, [isOpen]);
+
+  // Calculate total tokens from all messages
+  const calculateTotalTokens = () => {
+    if (!conversationDetail) return null;
+    
+    return conversationDetail.messages.reduce((total, message) => {
+      const messageTokens = (message.input_tokens || 0) + (message.output_tokens || 0);
+      return total + messageTokens;
+    }, 0);
+  };
+
   if (!conversation) return null;
 
   const formatDate = (dateString: string) => {
@@ -80,6 +111,23 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
               <p className="text-gray-100">
                 {conversation.message_count || 0} message{(conversation.message_count || 0) !== 1 ? 's' : ''}
               </p>
+            </div>
+
+            {/* Total Tokens */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Total Tokens</h4>
+              {loadingDetails ? (
+                <p className="text-gray-400">Loading...</p>
+              ) : (
+                <p className="text-gray-100">
+                  {(() => {
+                    const totalTokens = calculateTotalTokens();
+                    return totalTokens !== null 
+                      ? `${totalTokens.toLocaleString()} tokens`
+                      : 'N/A';
+                  })()}
+                </p>
+              )}
             </div>
           </div>
 

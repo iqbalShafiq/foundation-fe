@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText, MoreVertical, Info, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { Conversation } from '../../types/chat';
+import { Conversation, ConversationDetail } from '../../types/chat';
 import { getSidebarCollapsedState, setSidebarCollapsedState } from '../../utils/sidebarStorage';
 import UserProfile from './UserProfile';
 import SidebarButton from './SidebarButton';
@@ -37,6 +37,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [currentConversationDetail, setCurrentConversationDetail] = useState<ConversationDetail | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => getSidebarCollapsedState());
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
@@ -89,6 +90,25 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     }
   }, [currentConversationId]);
 
+  // Fetch current conversation detail for token display
+  useEffect(() => {
+    const fetchCurrentConversationDetail = async () => {
+      if (currentConversationId) {
+        try {
+          const detail = await apiService.getConversationDetail(currentConversationId);
+          setCurrentConversationDetail(detail);
+        } catch (err) {
+          console.error('Error fetching conversation detail:', err);
+          setCurrentConversationDetail(null);
+        }
+      } else {
+        setCurrentConversationDetail(null);
+      }
+    };
+
+    fetchCurrentConversationDetail();
+  }, [currentConversationId]);
+
   const loadConversations = async () => {
     try {
       setLoading(true);
@@ -106,6 +126,34 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const truncateTitle = (title: string, maxLength: number = 30) => {
     if (title.length <= maxLength) return title;
     return title.substring(0, maxLength) + '...';
+  };
+
+  const formatTokenCount = (tokens: number) => {
+    if (tokens >= 1000000000) {
+      return `${(tokens / 1000000000).toFixed(1).replace(/\.0$/, '')}B`;
+    }
+    if (tokens >= 1000000) {
+      return `${(tokens / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+    }
+    if (tokens >= 10000) {
+      return `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+    }
+    return tokens.toString();
+  };
+
+  const getCurrentConversationTotalTokens = () => {
+    if (!currentConversationDetail) return null;
+    
+    // Find the last AI message (assistant role) - iterate from the end without modifying original array
+    const messages = currentConversationDetail.messages;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.total_tokens) {
+        return msg.total_tokens;
+      }
+    }
+    
+    return null;
   };
 
 
@@ -302,7 +350,12 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                           </div>
                           {currentConversationId === conversation.id && (
                             <div className="ml-2 px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-md border border-blue-600/30">
-                              Current
+                              {(() => {
+                                const totalTokens = getCurrentConversationTotalTokens();
+                                return totalTokens 
+                                  ? `${formatTokenCount(totalTokens)} tokens`
+                                  : 'Current';
+                              })()}
                             </div>
                           )}
                         </div>

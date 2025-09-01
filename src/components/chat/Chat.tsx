@@ -672,7 +672,7 @@ const Chat: React.FC = () => {
                       .filter(msg => msg.imageUrls && msg.imageUrls.length > 0)
                       .flatMap(msg => msg.imageUrls!);
                     
-                    return messages.map((message) => (
+                    return messages.map((message, index) => (
                       <ChatMessage 
                         key={message.id} 
                         message={message} 
@@ -680,6 +680,7 @@ const Chat: React.FC = () => {
                         onAddDocumentToContext={handleAddDocumentToContext}
                         onRemoveDocumentFromContext={handleRemoveDocumentFromContext}
                         selectedDocuments={selectedDocuments}
+                        nextMessage={index < messages.length - 1 ? messages[index + 1] : undefined}
                       />
                     ));
                   })()}

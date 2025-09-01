@@ -17,9 +17,10 @@ interface ChatMessageProps {
   onAddDocumentToContext?: (documentId: string) => void;
   onRemoveDocumentFromContext?: (documentId: string) => void;
   selectedDocuments?: string[];
+  nextMessage?: ChatMessageType; // Next message to get input_tokens for human messages
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext, onRemoveDocumentFromContext, selectedDocuments = [] }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages = [], onAddDocumentToContext, onRemoveDocumentFromContext, selectedDocuments = [], nextMessage }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [userFeedback, setUserFeedback] = useState<FeedbackType | null>(null);
@@ -424,10 +425,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, conversationImages =
               <span>{message.model}</span>
             </>
           )}
-          {!message.isUser && message.total_tokens != null && message.total_tokens > 0 && (
+          {/* Display input_tokens for human messages from the next AI message */}
+          {message.isUser && nextMessage && !nextMessage.isUser && nextMessage.input_tokens != null && nextMessage.input_tokens > 0 && (
             <>
               <span className="mx-1">•</span>
-              <span className="text-blue-400">{message.total_tokens} tokens</span>
+              <span className="text-blue-400">{nextMessage.input_tokens} tokens</span>
+            </>
+          )}
+          {!message.isUser && message.output_tokens != null && message.output_tokens > 0 && (
+            <>
+              <span className="mx-1">•</span>
+              <span className="text-blue-400">{message.output_tokens} tokens</span>
               {message.model_cost != null && message.model_cost > 0 && (
                 <>
                   <span className="mx-1">•</span>
