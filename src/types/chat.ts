@@ -60,6 +60,8 @@ export type Conversation = {
   updated_at: string;
   message_count?: number;
   related_chats?: RelatedChat[];
+  parent_conversation_id?: string | null;
+  is_branch?: boolean;
 };
 
 export type DocumentContext = {
@@ -146,6 +148,7 @@ export type EditMessageRequest = {
 export type EditMessageResponse = {
   message: Message;
   new_branch_id: string;
+  new_conversation_id?: string;
 };
 
 export type Branch = {

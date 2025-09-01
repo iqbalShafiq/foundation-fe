@@ -662,8 +662,13 @@ const Chat: React.FC = () => {
       // Call the API to edit the message and create a new branch
       const response = await apiService.editMessage(editMessageModal.messageId, newContent);
       
-      // Refresh the conversation to load the new branch
-      await loadConversation(conversationId);
+      // If a new conversation was created, navigate to it
+      if (response.new_conversation_id) {
+        navigate(`/conversation/${response.new_conversation_id}`);
+      } else {
+        // Refresh the current conversation to load the new branch
+        await loadConversation(conversationId);
+      }
       
       // Show success feedback
       console.log('Message edited successfully, new branch created:', response.new_branch_id);

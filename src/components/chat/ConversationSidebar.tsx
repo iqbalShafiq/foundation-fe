@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText, MoreVertical, Info, Trash2 } from 'lucide-react';
+import { Bot, PanelLeftClose, PanelLeftOpen, Image, Search, MessageCircle, FileText, MoreVertical, Info, Trash2, ArrowUpLeft } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { Conversation, ConversationDetail } from '../../types/chat';
 import { getSidebarCollapsedState, setSidebarCollapsedState } from '../../utils/sidebarStorage';
@@ -359,6 +359,22 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                             </div>
                           )}
                         </div>
+                        
+                        {/* Parent conversation button */}
+                        {conversation.parent_conversation_id && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectConversation(conversation.parent_conversation_id!);
+                              setOpenDropdownId(null);
+                            }}
+                            className="flex items-center space-x-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded-md px-2 py-1 w-full text-left transition-all duration-200 hover:transform hover:scale-105"
+                          >
+                            <ArrowUpLeft className="h-3 w-3" />
+                            <span>Go to parent conversation</span>
+                          </button>
+                        )}
                         
                         {/* Delete button */}
                         <button

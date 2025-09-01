@@ -7,7 +7,6 @@ import { User, Bot, Copy, Check, ThumbsUp, ThumbsDown, FileText, Edit3 } from 'l
 import FeedbackModal from './FeedbackModal';
 import { DocumentContextIndicator } from './DocumentContextIndicator';
 import { ImageViewer } from '../ui';
-import BranchIndicator from './BranchIndicator';
 import { apiService } from '../../services/api';
 import { getImageUrl } from '../../utils/imageUrl';
 import PlotlyChart from './PlotlyChart';
@@ -216,15 +215,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               )}
             </div>
 
-            {/* Branch Indicator */}
-            {(message.hasBranches || message.branchId) && (
-              <BranchIndicator
-                hasBranches={message.hasBranches}
-                branchId={message.branchId}
-                isActiveBranch={message.isActiveBranch}
-                onClick={() => message.messageId && onShowBranches?.(message.messageId.toString())}
-              />
-            )}
             </div>
             </div>
           </div>
@@ -540,15 +530,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               )}
             </div>
 
-            {/* Branch Indicator */}
-            {(message.hasBranches || message.branchId) && (
-              <BranchIndicator
-                hasBranches={message.hasBranches}
-                branchId={message.branchId}
-                isActiveBranch={message.isActiveBranch}
-                onClick={() => message.messageId && onShowBranches?.(message.messageId.toString())}
-              />
-            )}
             </div>
           </div>
           
