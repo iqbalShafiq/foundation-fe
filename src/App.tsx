@@ -69,6 +69,14 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/settings/monthly-tokens"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/documents"
         element={
           <ProtectedRoute>

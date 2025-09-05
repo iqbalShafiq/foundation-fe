@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import SettingsSidebar from './SettingsSidebar';
 import AccountInformation from './AccountInformation';
 import PreferencesSection from './PreferencesSection';
+import MonthlyTokens from './MonthlyTokens';
 
 const Settings: React.FC = () => {
   const location = useLocation();
@@ -12,6 +13,7 @@ const Settings: React.FC = () => {
   const getActiveSectionFromPath = (pathname: string): string => {
     if (pathname === '/settings/account') return 'account';
     if (pathname === '/settings/preferences') return 'preferences';
+    if (pathname === '/settings/monthly-tokens') return 'monthly-tokens';
     return 'account'; // default
   };
 
@@ -30,6 +32,8 @@ const Settings: React.FC = () => {
         return <AccountInformation />;
       case 'preferences':
         return <PreferencesSection />;
+      case 'monthly-tokens':
+        return <MonthlyTokens />;
       default:
         return <AccountInformation />;
     }

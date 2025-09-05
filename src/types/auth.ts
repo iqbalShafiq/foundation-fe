@@ -1,9 +1,12 @@
+import { TokenStats } from './tokens';
+
 export type User = {
   id: number;
   username: string;
   email: string;
   role: string;
   is_active: boolean;
+  token_stats?: TokenStats;
 };
 
 export type LoginRequest = {

@@ -10,6 +10,7 @@ import {
   DocumentSearchRequest, 
   DocumentSearchResponse 
 } from '../types/document';
+import { MonthlyDailyBreakdown, DailyConversationBreakdown } from '../types/tokens';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -57,8 +58,23 @@ class ApiService {
     return response.data;
   }
 
-  async getCurrentUser(): Promise<User> {
-    const response = await this.api.get<User>('/auth/me');
+  async getCurrentUser(params?: {
+    limit?: number;
+    include_token_stats?: boolean;
+    from_year?: number;
+    from_month?: number;
+  }): Promise<User> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.include_token_stats !== undefined) {
+      queryParams.append('include_token_stats', params.include_token_stats.toString());
+    }
+    if (params?.from_year) queryParams.append('from_year', params.from_year.toString());
+    if (params?.from_month) queryParams.append('from_month', params.from_month.toString());
+    
+    const url = `/auth/me${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.api.get<User>(url);
     return response.data;
   }
 
@@ -306,6 +322,17 @@ class ApiService {
   async activateBranch(conversationId: string, branchId: string): Promise<void> {
     await this.api.post(`/conversations/${conversationId}/branches/${branchId}/activate`);
   }
+
+  async getDailyTokenStats(year: number, month: number): Promise<MonthlyDailyBreakdown> {
+    const response = await this.api.get<MonthlyDailyBreakdown>(`/auth/token-stats/monthly/${year}/${month}/daily`);
+    return response.data;
+  }
+
+  async getConversationTokenStats(date: string): Promise<DailyConversationBreakdown> {
+    const response = await this.api.get<DailyConversationBreakdown>(`/auth/token-stats/daily/${date}/conversations`);
+    return response.data;
+  }
+
 }
 
 export const apiService = new ApiService();
