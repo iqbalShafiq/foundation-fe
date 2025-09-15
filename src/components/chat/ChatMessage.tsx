@@ -204,6 +204,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             </div>
 
+            {/* Document Context Indicator for User Messages */}
+            {message.documentContext && (
+              <div className="mt-2 flex justify-end">
+                <div className="max-w-fit">
+                  <DocumentContextIndicator 
+                    documentContext={message.documentContext} 
+                    variant="full"
+                    onAddToContext={onAddDocumentToContext}
+                    onRemoveFromContext={onRemoveDocumentFromContext}
+                    selectedDocuments={selectedDocuments}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Timestamp and metadata */}
             <div className="flex items-center mt-2 text-xs text-gray-400 justify-end">
               <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
