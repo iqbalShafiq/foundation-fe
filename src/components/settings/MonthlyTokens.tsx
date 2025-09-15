@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card } from '../ui';
 import { CreditCard, Calendar, TrendingUp, Activity, DollarSign, ChevronDown, ArrowRight } from 'lucide-react';
 import { apiService } from '../../services/api';
@@ -18,13 +19,43 @@ interface DrillDownState {
 }
 
 const MonthlyTokens: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(12);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [drillDownState, setDrillDownState] = useState<DrillDownState | null>(null);
+
+  // Parse URL parameters to determine current view and state
+  const getViewModeFromParams = (): ViewMode => {
+    const view = searchParams.get('view');
+    if (view === 'daily' || view === 'conversations') return view;
+    return 'monthly';
+  };
+
+  const getDrillDownStateFromParams = (): DrillDownState | null => {
+    const year = searchParams.get('year');
+    const month = searchParams.get('month');
+    const monthName = searchParams.get('monthName');
+    const date = searchParams.get('date');
+
+    if (year && month && monthName) {
+      return {
+        year: parseInt(year),
+        month: parseInt(month),
+        monthName: decodeURIComponent(monthName),
+        date: date || undefined,
+        dayStats: undefined // We'll fetch this when needed
+      };
+    }
+    return null;
+  };
+
+  const viewMode = getViewModeFromParams();
+  const urlDrillDownState = getDrillDownStateFromParams();
 
   const fetchTokenData = async (monthsLimit: number = 12, append: boolean = false) => {
     try {
@@ -63,6 +94,13 @@ const MonthlyTokens: React.FC = () => {
   useEffect(() => {
     fetchTokenData(limit);
   }, []);
+
+  // Initialize drill down state from URL parameters
+  useEffect(() => {
+    if (urlDrillDownState && !drillDownState) {
+      setDrillDownState(urlDrillDownState);
+    }
+  }, [urlDrillDownState, drillDownState]);
 
   const formatNumber = (num: number): string => {
     return new Intl.NumberFormat().format(num);
@@ -115,31 +153,61 @@ const MonthlyTokens: React.FC = () => {
 
   const handleMonthClick = (monthStat: MonthlyTokenStats) => {
     const { year, month, monthName } = parseMonthString(monthStat.month);
-    setDrillDownState({ year, month, monthName });
-    setViewMode('daily');
+    const newDrillDownState = { year, month, monthName };
+    setDrillDownState(newDrillDownState);
+    
+    // Update URL parameters
+    const params = new URLSearchParams();
+    params.set('view', 'daily');
+    params.set('year', year.toString());
+    params.set('month', month.toString());
+    params.set('monthName', encodeURIComponent(monthName));
+    setSearchParams(params);
   };
 
   const handleDayClick = (date: string, dayStats: DailyTokenStats) => {
     if (drillDownState) {
-      setDrillDownState({ ...drillDownState, date, dayStats });
-      setViewMode('conversations');
+      const newDrillDownState = { ...drillDownState, date, dayStats };
+      setDrillDownState(newDrillDownState);
+      
+      // Update URL parameters
+      const params = new URLSearchParams();
+      params.set('view', 'conversations');
+      params.set('year', drillDownState.year.toString());
+      params.set('month', drillDownState.month.toString());
+      params.set('monthName', encodeURIComponent(drillDownState.monthName));
+      params.set('date', date);
+      setSearchParams(params);
     }
   };
 
   const handleBackToMonthly = () => {
-    setViewMode('monthly');
     setDrillDownState(null);
+    // Clear URL parameters to go back to monthly view
+    setSearchParams(new URLSearchParams());
   };
 
   const handleBackToDaily = () => {
-    setViewMode('daily');
     if (drillDownState) {
-      setDrillDownState({ ...drillDownState, date: undefined, dayStats: undefined });
+      const newDrillDownState = { ...drillDownState, date: undefined, dayStats: undefined };
+      setDrillDownState(newDrillDownState);
+      
+      // Update URL parameters to daily view
+      const params = new URLSearchParams();
+      params.set('view', 'daily');
+      params.set('year', drillDownState.year.toString());
+      params.set('month', drillDownState.month.toString());
+      params.set('monthName', encodeURIComponent(drillDownState.monthName));
+      setSearchParams(params);
     }
   };
 
   const handleConversationClick = (conversationId: string) => {
-    window.open(`/chat/${conversationId}`, '_blank');
+    // Option 1: Open in new tab (keeps settings page open)
+    window.open(`/conversation/${conversationId}`, '_blank');
+    
+    // Option 2: Navigate in same tab (uncomment if preferred)
+    // navigate(`/conversation/${conversationId}`);
   };
 
   if (loading) {
@@ -202,7 +270,7 @@ const MonthlyTokens: React.FC = () => {
     );
   }
 
-  if (viewMode === 'conversations' && drillDownState?.date && drillDownState?.dayStats) {
+  if (viewMode === 'conversations' && drillDownState?.date) {
     return (
       <ConversationTokenBreakdown
         date={drillDownState.date}

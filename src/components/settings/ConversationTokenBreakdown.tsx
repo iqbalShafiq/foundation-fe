@@ -6,7 +6,7 @@ import { DailyConversationBreakdown, ConversationTokenStats, DailyTokenStats } f
 
 interface ConversationTokenBreakdownProps {
   date: string;
-  dayStats: DailyTokenStats;
+  dayStats?: DailyTokenStats;
   onBack: () => void;
   onConversationClick?: (conversationId: string) => void;
 }
@@ -18,6 +18,7 @@ const ConversationTokenBreakdown: React.FC<ConversationTokenBreakdownProps> = ({
   onConversationClick 
 }) => {
   const [data, setData] = useState<DailyConversationBreakdown | null>(null);
+  const [computedDayStats, setComputedDayStats] = useState<DailyTokenStats | null>(dayStats || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +28,20 @@ const ConversationTokenBreakdown: React.FC<ConversationTokenBreakdownProps> = ({
         setLoading(true);
         const response = await apiService.getConversationTokenStats(date);
         setData(response);
+        
+        // If dayStats not provided (e.g., from URL refresh), compute it from conversation stats
+        if (!dayStats && response.conversation_stats.length > 0) {
+          const computed: DailyTokenStats = {
+            date: response.date,
+            input_tokens: response.conversation_stats.reduce((sum, conv) => sum + conv.input_tokens, 0),
+            output_tokens: response.conversation_stats.reduce((sum, conv) => sum + conv.output_tokens, 0),
+            total_tokens: response.conversation_stats.reduce((sum, conv) => sum + conv.total_tokens, 0),
+            total_cost: response.conversation_stats.reduce((sum, conv) => sum + conv.total_cost, 0),
+            message_count: response.conversation_stats.reduce((sum, conv) => sum + conv.message_count, 0),
+            conversation_count: response.total_conversations
+          };
+          setComputedDayStats(computed);
+        }
       } catch (err) {
         setError('Failed to load conversation breakdown');
         console.error('Error fetching conversation stats:', err);
@@ -36,7 +51,7 @@ const ConversationTokenBreakdown: React.FC<ConversationTokenBreakdownProps> = ({
     };
 
     fetchConversationStats();
-  }, [date]);
+  }, [date, dayStats]);
 
   const formatNumber = (num: number): string => {
     return new Intl.NumberFormat().format(num);
@@ -157,63 +172,65 @@ const ConversationTokenBreakdown: React.FC<ConversationTokenBreakdownProps> = ({
       </div>
 
       {/* Day Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gray-800 border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-900/30 rounded-lg">
-              <Activity className="h-5 w-5 text-blue-400" />
-            </div>
-            <div>
-              <div className="text-lg font-bold text-gray-100">
-                {formatNumber(dayStats.total_tokens)}
+      {computedDayStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-gray-800 border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-900/30 rounded-lg">
+                <Activity className="h-5 w-5 text-blue-400" />
               </div>
-              <div className="text-xs text-gray-400">Total Tokens</div>
+              <div>
+                <div className="text-lg font-bold text-gray-100">
+                  {formatNumber(computedDayStats.total_tokens)}
+                </div>
+                <div className="text-xs text-gray-400">Total Tokens</div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="bg-gray-800 border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-900/30 rounded-lg">
-              <DollarSign className="h-5 w-5 text-green-400" />
-            </div>
-            <div>
-              <div className="text-lg font-bold text-gray-100">
-                {formatCurrency(dayStats.total_cost)}
+          <Card className="bg-gray-800 border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-900/30 rounded-lg">
+                <DollarSign className="h-5 w-5 text-green-400" />
               </div>
-              <div className="text-xs text-gray-400">Total Cost</div>
+              <div>
+                <div className="text-lg font-bold text-gray-100">
+                  {formatCurrency(computedDayStats.total_cost)}
+                </div>
+                <div className="text-xs text-gray-400">Total Cost</div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="bg-gray-800 border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-900/30 rounded-lg">
-              <MessageCircle className="h-5 w-5 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-lg font-bold text-gray-100">
-                {formatNumber(dayStats.message_count)}
+          <Card className="bg-gray-800 border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-900/30 rounded-lg">
+                <MessageCircle className="h-5 w-5 text-purple-400" />
               </div>
-              <div className="text-xs text-gray-400">Messages</div>
+              <div>
+                <div className="text-lg font-bold text-gray-100">
+                  {formatNumber(computedDayStats.message_count)}
+                </div>
+                <div className="text-xs text-gray-400">Messages</div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="bg-gray-800 border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-yellow-900/30 rounded-lg">
-              <MessageCircle className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div>
-              <div className="text-lg font-bold text-gray-100">
-                {formatNumber(dayStats.conversation_count)}
+          <Card className="bg-gray-800 border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-yellow-900/30 rounded-lg">
+                <MessageCircle className="h-5 w-5 text-yellow-400" />
               </div>
-              <div className="text-xs text-gray-400">Conversations</div>
+              <div>
+                <div className="text-lg font-bold text-gray-100">
+                  {formatNumber(computedDayStats.conversation_count)}
+                </div>
+                <div className="text-xs text-gray-400">Conversations</div>
+              </div>
             </div>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      )}
 
       {/* Conversation List */}
       <Card>
@@ -283,34 +300,36 @@ const ConversationTokenBreakdown: React.FC<ConversationTokenBreakdownProps> = ({
           </div>
 
           {/* Statistics Summary */}
-          <div className="mt-6 pt-4 border-t border-gray-700">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-gray-100">
-                  {Math.round(dayStats.total_tokens / dayStats.conversation_count)}
+          {computedDayStats && (
+            <div className="mt-6 pt-4 border-t border-gray-700">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-gray-100">
+                    {Math.round(computedDayStats.total_tokens / computedDayStats.conversation_count)}
+                  </div>
+                  <div className="text-xs text-gray-400">Avg tokens/conversation</div>
                 </div>
-                <div className="text-xs text-gray-400">Avg tokens/conversation</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-100">
-                  {Math.round(dayStats.message_count / dayStats.conversation_count)}
+                <div>
+                  <div className="text-2xl font-bold text-gray-100">
+                    {Math.round(computedDayStats.message_count / computedDayStats.conversation_count)}
+                  </div>
+                  <div className="text-xs text-gray-400">Avg messages/conversation</div>
                 </div>
-                <div className="text-xs text-gray-400">Avg messages/conversation</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-100">
-                  {formatCurrency(dayStats.total_cost / dayStats.conversation_count)}
+                <div>
+                  <div className="text-2xl font-bold text-gray-100">
+                    {formatCurrency(computedDayStats.total_cost / computedDayStats.conversation_count)}
+                  </div>
+                  <div className="text-xs text-gray-400">Avg cost/conversation</div>
                 </div>
-                <div className="text-xs text-gray-400">Avg cost/conversation</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-100">
-                  {Math.round((dayStats.output_tokens / dayStats.input_tokens) * 100)}%
+                <div>
+                  <div className="text-2xl font-bold text-gray-100">
+                    {Math.round((computedDayStats.output_tokens / computedDayStats.input_tokens) * 100)}%
+                  </div>
+                  <div className="text-xs text-gray-400">Output/Input ratio</div>
                 </div>
-                <div className="text-xs text-gray-400">Output/Input ratio</div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </Card>
 
