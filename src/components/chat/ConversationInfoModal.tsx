@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Info, User as UserIcon, Copy, Check } from 'lucide-react';
+import { Info, Copy, Check, List } from 'lucide-react';
 import { Modal } from '../ui';
 import { Conversation, ConversationDetail } from '../../types/chat';
 import { apiService } from '../../services/api';
+import ModelsModal from './ModelsModal';
 
 interface ConversationInfoModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [conversationDetail, setConversationDetail] = useState<ConversationDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isModelsModalOpen, setIsModelsModalOpen] = useState(false);
 
   // Fetch conversation details when modal opens
   useEffect(() => {
@@ -98,10 +100,10 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
           <div className="space-y-4">
             {/* Model Type */}
             <div>
-              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Model</h4>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">{conversation.category_name ? 'Category' : 'Model'}</h4>
               <div>
-                <p className="text-gray-100">{conversation.model_type}</p>
-                <p className="text-gray-400 text-sm">AI Assistant</p>
+                <p className="text-gray-100">{conversation.category_name || conversation.model_type}</p>
+                <p className="text-gray-400 text-sm">{conversation.category_name ? 'Chat Category' : 'AI Assistant'}</p>
               </div>
             </div>
 
@@ -152,16 +154,6 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
           </div>
         </div>
 
-        {/* User ID (if available) */}
-        {conversation.user_id && (
-          <div>
-            <div className="flex items-center space-x-2 mb-2">
-              <UserIcon className="h-4 w-4 text-indigo-400" />
-              <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wide">User ID</h4>
-            </div>
-            <p className="text-gray-100 font-mono text-sm">{conversation.user_id}</p>
-          </div>
-        )}
 
         {/* Conversation ID */}
         <div>
@@ -184,7 +176,24 @@ const ConversationInfoModal: React.FC<ConversationInfoModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* View Models Button */}
+        <div className="pt-4 border-t border-gray-600">
+          <button
+            onClick={() => setIsModelsModalOpen(true)}
+            className="flex items-center space-x-2 w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-all duration-200 hover:shadow-md"
+          >
+            <List className="h-4 w-4" />
+            <span>View All Available Models</span>
+          </button>
+        </div>
       </div>
+
+      {/* Models Modal */}
+      <ModelsModal
+        isOpen={isModelsModalOpen}
+        onClose={() => setIsModelsModalOpen(false)}
+      />
     </Modal>
   );
 };

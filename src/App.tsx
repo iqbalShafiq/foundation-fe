@@ -77,6 +77,14 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/settings/model-categories"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/documents"
         element={
           <ProtectedRoute>

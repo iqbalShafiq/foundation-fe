@@ -20,6 +20,7 @@ interface ChatMessageProps {
   nextMessage?: ChatMessageType; // Next message to get input_tokens for human messages
   onEditMessage?: (messageId: string) => void;
   onShowBranches?: (messageId: string) => void;
+  categoryName?: string | null; // Category name from conversation detail
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ 
@@ -30,7 +31,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   selectedDocuments = [], 
   nextMessage, 
   onEditMessage, 
-  onShowBranches 
+  onShowBranches, 
+  categoryName 
 }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -490,22 +492,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             {/* Timestamp and metadata */}
             <div className="flex items-center mt-2 text-xs text-gray-400 justify-start">
               <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              {message.model && (
+              {(categoryName || message.model) && (
                 <>
                   <span className="mx-1">•</span>
-                  <span>{message.model}</span>
+                  <span>{categoryName || message.model}</span>
                 </>
               )}
               {message.output_tokens != null && message.output_tokens > 0 && (
                 <>
                   <span className="mx-1">•</span>
                   <span className="text-blue-400">{message.output_tokens} tokens</span>
-                  {message.model_cost != null && message.model_cost > 0 && (
-                    <>
-                      <span className="mx-1">•</span>
-                      <span className="text-green-400">${message.model_cost.toFixed(4)}</span>
-                    </>
-                  )}
                 </>
               )}
               

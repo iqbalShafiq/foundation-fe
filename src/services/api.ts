@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { LoginRequest, RegisterRequest, AuthResponse, User } from '../types/auth';
-import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse, EditMessageRequest, EditMessageResponse, BranchesResponse } from '../types/chat';
+import { ModelType, Conversation, ConversationDetail, FeedbackCreate, FeedbackResponse, EditMessageResponse, BranchesResponse } from '../types/chat';
 import { UserPreferences, UserPreferencesUpdate } from '../types/preferences';
 import { GalleryResponse } from '../types/gallery';
 import { 
@@ -11,6 +11,19 @@ import {
   DocumentSearchResponse 
 } from '../types/document';
 import { MonthlyDailyBreakdown, DailyConversationBreakdown } from '../types/tokens';
+import { 
+  Model, 
+  ModelSearchParams, 
+  ModelSearchResponse, 
+  ModelPricingComparison, 
+  ModelCapabilitiesSummary,
+  UserModelCategory,
+  CreateUserModelCategoryRequest,
+  UpdateUserModelCategoryRequest,
+  ModelPricingInfo,
+  CostEstimationRequest,
+  CostEstimationResponse
+} from '../types/models';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -113,8 +126,9 @@ class ApiService {
 
   async* streamChat(
     message: string, 
-    model: ModelType = 'Standard', 
+    modelId: string, 
     conversationId?: string, 
+    categoryId?: number,
     images?: File[],
     documentContexts?: string[],
     contextCollection?: string,
@@ -124,10 +138,14 @@ class ApiService {
     // Create FormData for multipart form support
     const formData = new FormData();
     formData.append('message', message);
-    formData.append('model', model);
+    formData.append('model_id', modelId);
     
     if (conversationId) {
       formData.append('conversation_id', conversationId);
+    }
+    
+    if (categoryId !== undefined) {
+      formData.append('category_id', categoryId.toString());
     }
     
     // Add document context parameters
@@ -330,6 +348,80 @@ class ApiService {
 
   async getConversationTokenStats(date: string): Promise<DailyConversationBreakdown> {
     const response = await this.api.get<DailyConversationBreakdown>(`/auth/token-stats/daily/${date}/conversations`);
+    return response.data;
+  }
+
+  // Model Management API methods
+  async syncModels(): Promise<{ message: string; models_synced: number }> {
+    const response = await this.api.post('/models/sync');
+    return response.data;
+  }
+
+  async getModels(): Promise<Model[]> {
+    const response = await this.api.get<{ models: Model[] }>('/models');
+    return response.data.models || [];
+  }
+
+  async searchModels(params?: ModelSearchParams): Promise<ModelSearchResponse> {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.query) searchParams.append('query', params.query);
+    if (params?.provider) searchParams.append('provider', params.provider);
+    if (params?.modality) searchParams.append('modality', params.modality.join(','));
+    if (params?.min_context_length) searchParams.append('min_context_length', params.min_context_length.toString());
+    if (params?.max_context_length) searchParams.append('max_context_length', params.max_context_length.toString());
+    if (params?.min_cost) searchParams.append('min_cost', params.min_cost.toString());
+    if (params?.max_cost) searchParams.append('max_cost', params.max_cost.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    
+    const url = `/models/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const response = await this.api.get<ModelSearchResponse>(url);
+    return response.data;
+  }
+
+  async getModel(modelId: string): Promise<Model> {
+    const response = await this.api.get<Model>(`/models/${modelId}`);
+    return response.data;
+  }
+
+  async getModelPricingComparison(): Promise<ModelPricingComparison[]> {
+    const response = await this.api.get<ModelPricingComparison[]>('/models/pricing/comparison');
+    return response.data;
+  }
+
+  async getModelCapabilitiesSummary(): Promise<ModelCapabilitiesSummary> {
+    const response = await this.api.get<ModelCapabilitiesSummary>('/models/capabilities/summary');
+    return response.data;
+  }
+
+  // User Model Categories API methods
+  async getUserModelCategories(): Promise<UserModelCategory[]> {
+    const response = await this.api.get<{ categories: UserModelCategory[]; total_count: number }>('/user-model-categories');
+    return response.data.categories || [];
+  }
+
+  async createUserModelCategory(category: CreateUserModelCategoryRequest): Promise<UserModelCategory> {
+    const response = await this.api.post<UserModelCategory>('/user-model-categories', category);
+    return response.data;
+  }
+
+  async updateUserModelCategory(categoryId: number, updates: UpdateUserModelCategoryRequest): Promise<UserModelCategory> {
+    const response = await this.api.put<UserModelCategory>(`/user-model-categories/${categoryId}`, updates);
+    return response.data;
+  }
+
+  async deleteUserModelCategory(categoryId: number): Promise<void> {
+    await this.api.delete(`/user-model-categories/${categoryId}`);
+  }
+
+  async getModelCategoryPricingInfo(categoryName: string): Promise<ModelPricingInfo> {
+    const response = await this.api.get<ModelPricingInfo>(`/user-model-categories/${categoryName}/pricing-info`);
+    return response.data;
+  }
+
+  async estimateCost(request: CostEstimationRequest): Promise<CostEstimationResponse> {
+    const response = await this.api.post<CostEstimationResponse>('/user-model-categories/estimate-cost', request);
     return response.data;
   }
 

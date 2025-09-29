@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Bot } from 'lucide-react';
 import { ChatMessage as ChatMessageType, ModelType } from "../../types/chat";
+import { UserModelCategory } from "../../types/models";
 import { apiService } from "../../services/api";
 import { modelStorage } from "../../utils/modelStorage";
 import ChatHeader from "./ChatHeader";
@@ -25,6 +26,7 @@ const Chat: React.FC = () => {
   
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelType>(() => modelStorage.load("Standard"));
+  const [userModelCategories, setUserModelCategories] = useState<UserModelCategory[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState("");
   const [currentChartContent, setCurrentChartContent] = useState<any>(null);
@@ -32,6 +34,7 @@ const Chat: React.FC = () => {
   const [currentReasoningContent, setCurrentReasoningContent] = useState("");
   const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | 'answering' | null>(null);
   const [currentConversationTitle, setCurrentConversationTitle] = useState<string>("");
+  const [currentConversationCategoryName, setCurrentConversationCategoryName] = useState<string | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
@@ -46,6 +49,19 @@ const Chat: React.FC = () => {
   // Determine current view based on URL
   const currentView = location.pathname === '/conversations' ? 'all-conversations' : 'chat';
   const currentConversationId = conversationId;
+
+  // Load user model categories on mount
+  useEffect(() => {
+    const loadUserModelCategories = async () => {
+      try {
+        const categories = await apiService.getUserModelCategories();
+        setUserModelCategories(categories);
+      } catch (error) {
+        console.error('Failed to load user model categories:', error);
+      }
+    };
+    loadUserModelCategories();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -86,6 +102,7 @@ const Chat: React.FC = () => {
       if (!isStreaming) {
         setMessages([]);
         setCurrentConversationTitle("");
+        setCurrentConversationCategoryName(null);
         setCurrentStreamContent("");
         setCurrentChartContent(null);
         setCurrentThinkingContent("");
@@ -147,6 +164,60 @@ const Chat: React.FC = () => {
     return content.replace(/(\d+\.\s.*?)\n\n/g, '$1\n');
   };
 
+  // Get model_id for a given model category name
+  const getModelIdForCategory = (categoryName: string): string => {
+    // First check user model categories
+    const userCategory = userModelCategories.find(cat => 
+      cat.category_name === categoryName || cat.display_name === categoryName
+    );
+    if (userCategory) {
+      return userCategory.model_id;
+    }
+
+    // Default mapping for built-in categories
+    const defaultMappings: Record<string, string> = {
+      'Fast': 'anthropic/claude-haiku-3.5',
+      'Standard': 'anthropic/claude-sonnet-4',
+      'Fast Reasoning': 'anthropic/claude-sonnet-3.5',
+      'Reasoning': 'anthropic/claude-opus-3'
+    };
+
+    return defaultMappings[categoryName] || 'anthropic/claude-sonnet-4';
+  };
+
+  // Get category_id for a given model category name (for API payload)
+  const getCategoryIdForCategory = (categoryName: string): number | undefined => {
+    // First check user model categories
+    const userCategory = userModelCategories.find(cat => 
+      cat.category_name === categoryName || cat.display_name === categoryName
+    );
+    if (userCategory) {
+      return userCategory.id;
+    }
+
+    // For built-in categories, we don't send category_id as they are handled by model_id
+    return undefined;
+  };
+
+  // Get display name for model/category (for chat bubble display)
+  const getDisplayNameForModel = (modelName: string): string => {
+    // If we have current conversation category name, use it
+    if (currentConversationCategoryName) {
+      return currentConversationCategoryName;
+    }
+
+    // For new conversations, check if the selected model is a user category
+    const userCategory = userModelCategories.find(cat => 
+      cat.category_name === modelName || cat.display_name === modelName
+    );
+    if (userCategory) {
+      return userCategory.display_name;
+    }
+
+    // Fall back to the model name
+    return modelName;
+  };
+
   const loadConversation = async (conversationId: string) => {
     console.log('Loading conversation:', conversationId);
     setCurrentStreamContent("");
@@ -167,8 +238,9 @@ const Chat: React.FC = () => {
       const conversationDetail = await apiService.getConversationDetail(conversationId);
       console.log('Conversation detail loaded:', conversationDetail);
       
-      // Set conversation title
+      // Set conversation title and category
       setCurrentConversationTitle(conversationDetail.title);
+      setCurrentConversationCategoryName(conversationDetail.category_name || null);
       
       // Convert backend messages to frontend format
       const loadedMessages: ChatMessageType[] = conversationDetail.messages.map((msg, index) => {
@@ -338,8 +410,9 @@ const Chat: React.FC = () => {
 
       for await (const chunk of apiService.streamChat(
         content,
-        selectedModel,
+        getModelIdForCategory(selectedModel),
         currentConversationId,
+        getCategoryIdForCategory(selectedModel),
         images,
         documentContexts,
         contextCollection
@@ -489,9 +562,10 @@ const Chat: React.FC = () => {
             try {
               const conversationDetail = await apiService.getConversationDetail(receivedConversationId);
               
-              // Update conversation title if it's a new conversation
+              // Update conversation title and category if it's a new conversation
               if (wasNewConversation) {
                 setCurrentConversationTitle(conversationDetail.title);
+                setCurrentConversationCategoryName(conversationDetail.category_name || null);
               }
               
               const updatedMessages: ChatMessageType[] = conversationDetail.messages.map((msg, index) => {
@@ -750,6 +824,7 @@ const Chat: React.FC = () => {
                         nextMessage={index < messages.length - 1 ? messages[index + 1] : undefined}
                         onEditMessage={handleEditMessage}
                         onShowBranches={handleShowBranches}
+                        categoryName={currentConversationCategoryName}
                       />
                     ));
                   })()}
@@ -869,7 +944,7 @@ const Chat: React.FC = () => {
                                 })}
                               </span>
                               <span className="mx-1">•</span>
-                              <span>{selectedModel}</span>
+                              <span>{getDisplayNameForModel(selectedModel)}</span>
                               {currentChartContent && (
                                 <>
                                   <span className="mx-1">•</span>

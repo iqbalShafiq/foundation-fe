@@ -4,6 +4,7 @@ import SettingsSidebar from './SettingsSidebar';
 import AccountInformation from './AccountInformation';
 import PreferencesSection from './PreferencesSection';
 import MonthlyTokens from './MonthlyTokens';
+import ModelCategoriesSection from './ModelCategoriesSection';
 
 const Settings: React.FC = () => {
   const location = useLocation();
@@ -14,6 +15,7 @@ const Settings: React.FC = () => {
     if (pathname === '/settings/account') return 'account';
     if (pathname === '/settings/preferences') return 'preferences';
     if (pathname === '/settings/monthly-tokens') return 'monthly-tokens';
+    if (pathname === '/settings/model-categories') return 'model-categories';
     return 'account'; // default
   };
 
@@ -34,6 +36,8 @@ const Settings: React.FC = () => {
         return <PreferencesSection />;
       case 'monthly-tokens':
         return <MonthlyTokens />;
+      case 'model-categories':
+        return <ModelCategoriesSection />;
       default:
         return <AccountInformation />;
     }

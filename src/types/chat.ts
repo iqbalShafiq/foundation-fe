@@ -4,6 +4,7 @@ export type ChatRequest = {
   message: string;
   model: ModelType;
   conversation_id?: string;
+  category_id?: number;
   document_contexts?: string[];
   context_collection?: string;
   max_context_chunks?: number;
@@ -56,6 +57,7 @@ export type Conversation = {
   id: string;
   title: string;
   model_type: string;
+  category_name?: string | null;
   created_at: string;
   updated_at: string;
   message_count?: number;
@@ -118,6 +120,7 @@ export type ConversationDetail = {
   id: string;
   title: string;
   model_type: string;
+  category_name?: string | null;
   created_at: string;
   updated_at: string;
   messages: Message[];

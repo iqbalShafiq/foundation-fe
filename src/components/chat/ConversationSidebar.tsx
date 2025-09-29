@@ -310,7 +310,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                       <Link
                         to={`/conversation/${conversation.id}`}
                         className="flex-1 min-w-0 px-3 py-2 cursor-pointer"
-                        title={`${conversation.title} (${conversation.model_type})`}
+                        title={`${conversation.title} (${conversation.category_name || conversation.model_type})`}
                       >
                         <p className={`text-sm font-medium text-gray-200 truncate transition-opacity duration-300 ${
                           isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'
@@ -349,7 +349,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-700/50 rounded-md px-2 py-1 transition-all duration-200 hover:bg-gray-700/70 flex-1">
                             <Bot className="h-3 w-3 text-blue-400" />
-                            <span>Model: {conversation.model_type}</span>
+                            <span>{conversation.category_name ? `Category: ${conversation.category_name}` : `Model: ${conversation.model_type}`}</span>
                           </div>
                           {currentConversationId === conversation.id && (
                             <div className="ml-2 px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-md border border-blue-600/30">
@@ -363,6 +363,21 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                           )}
                         </div>
                         
+                        {/* Conversation Info button */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedConversation(conversation);
+                            setIsInfoModalOpen(true);
+                            setOpenDropdownId(null);
+                          }}
+                          className="flex items-center space-x-2 text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 rounded-md px-2 py-1 w-full text-left transition-all duration-200 hover:transform hover:scale-105"
+                        >
+                          <Info className="h-3 w-3" />
+                          <span>View Details</span>
+                        </button>
+
                         {/* Parent conversation button */}
                         {conversation.parent_conversation_id && (
                           <button

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Settings as SettingsIcon, CreditCard } from 'lucide-react';
+import { ArrowLeft, User, Settings as SettingsIcon, CreditCard, Bot } from 'lucide-react';
 
 interface SettingsSidebarProps {
   activeSection: string;
@@ -27,6 +27,12 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection }) => {
       label: 'Monthly Tokens',
       icon: CreditCard,
       href: '/settings/monthly-tokens'
+    },
+    {
+      id: 'model-categories',
+      label: 'Model Categories',
+      icon: Bot,
+      href: '/settings/model-categories'
     }
   ];
 
