@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/api';
-import { UserModelCategory, Model, CreateUserModelCategoryRequest, isCustomCategory, getModelProvider } from '../../types/models';
+import { UserModelCategory, Model, CreateUserModelCategoryRequest, UpdateUserModelCategoryRequest, isCustomCategory, getModelProvider } from '../../types/models';
 import { Card, Input, Button, Alert } from '../ui';
-import { Bot, Plus, Trash2, DollarSign, Info, List } from 'lucide-react';
+import { Bot, Plus, Trash2, DollarSign, Info, List, Edit } from 'lucide-react';
 import ModelsModal from '../chat/ModelsModal';
 
 const ModelCategoriesSection: React.FC = () => {
@@ -17,10 +17,15 @@ const ModelCategoriesSection: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedModelId, setSelectedModelId] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
-  
-  
+
+  // Edit category state
+  const [editingCategory, setEditingCategory] = useState<UserModelCategory | null>(null);
+  const [editSelectedModelId, setEditSelectedModelId] = useState('');
+  const [updatingCategory, setUpdatingCategory] = useState(false);
+
   // Models modal state
   const [isModelsModalOpen, setIsModelsModalOpen] = useState(false);
+  const [isEditModelsModalOpen, setIsEditModelsModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -96,6 +101,47 @@ const ModelCategoriesSection: React.FC = () => {
     }
   };
 
+  const handleEditCategory = (category: UserModelCategory) => {
+    setEditingCategory(category);
+    setEditSelectedModelId(category.model_id);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !editSelectedModelId) {
+      setError('Please select a model.');
+      return;
+    }
+
+    try {
+      setUpdatingCategory(true);
+      setError(null);
+
+      const updateRequest: UpdateUserModelCategoryRequest = {
+        model_id: editSelectedModelId
+      };
+
+      await apiService.updateUserModelCategory(editingCategory.id, updateRequest);
+      await loadData();
+
+      setSuccess('Model category updated successfully!');
+      setEditingCategory(null);
+      setEditSelectedModelId('');
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      setError('Failed to update model category. Please try again.');
+    } finally {
+      setUpdatingCategory(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCategory(null);
+    setEditSelectedModelId('');
+    setError(null);
+  };
+
 
   const formatCostPer1M = (costPerToken: number) => {
     return (costPerToken * 1000000).toFixed(2); // Convert cost per token to cost per 1M tokens
@@ -144,6 +190,102 @@ const ModelCategoriesSection: React.FC = () => {
 
       {error && <Alert variant="error">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
+
+      {/* Edit Category Form */}
+      {editingCategory && (
+        <Card>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-100">Edit Model Category</h3>
+              <span className="px-3 py-1 text-sm bg-blue-900/30 text-blue-300 rounded-lg">
+                {editingCategory.display_name || editingCategory.category_name}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Current Model Info */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-2">
+                  Current Model
+                </label>
+                <div className="p-3 bg-gray-800/50 border border-gray-600 rounded-lg">
+                  <div className="font-medium text-gray-100">{editingCategory.model_name}</div>
+                  <div className="text-sm text-gray-400">
+                    ${formatCostPer1M(editingCategory.model_pricing.prompt_price)}/1M input •
+                    ${formatCostPer1M(editingCategory.model_pricing.completion_price)}/1M output
+                  </div>
+                </div>
+              </div>
+
+              {/* Select New Model */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-2">
+                  Select New Model
+                </label>
+
+                {/* Selected Model Display */}
+                {editSelectedModelId && editSelectedModelId !== editingCategory.model_id && (
+                  <div className="p-3 bg-gray-800 border border-blue-500 rounded-lg mb-3">
+                    {(() => {
+                      const selectedModel = availableModels.find(m => m.id === editSelectedModelId);
+                      if (!selectedModel) return <span className="text-gray-400">Model not found</span>;
+
+                      return (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-100">{selectedModel.name}</div>
+                            <div className="text-sm text-gray-400">
+                              {getModelProvider(selectedModel)} •
+                              ${formatCostPer1M(selectedModel.prompt_price)}/1M input •
+                              ${formatCostPer1M(selectedModel.completion_price)}/1M output
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditSelectedModelId(editingCategory.model_id)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Browse Models Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditModelsModalOpen(true)}
+                  icon={List}
+                  iconPosition="left"
+                  className="w-full"
+                >
+                  {editSelectedModelId !== editingCategory.model_id ? 'Choose Different Model' : 'Browse Available Models'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleCancelEdit}
+                disabled={updatingCategory}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handleUpdateCategory}
+                loading={updatingCategory}
+                disabled={!editSelectedModelId || editSelectedModelId === editingCategory.model_id || updatingCategory}
+              >
+                Update Category
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Add New Category Form */}
       {showAddForm && (
@@ -287,9 +429,18 @@ const ModelCategoriesSection: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
-                    {isCustomCat && (
-                      <div className="flex items-center space-x-2">
+
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditCategory(category)}
+                        icon={Edit}
+                        iconPosition="left"
+                      >
+                        Edit
+                      </Button>
+                      {isCustomCat && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -299,8 +450,8 @@ const ModelCategoriesSection: React.FC = () => {
                         >
                           Delete
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -316,13 +467,14 @@ const ModelCategoriesSection: React.FC = () => {
           <ul className="text-sm text-blue-200 space-y-1">
             <li>• Model categories let you customize your AI experience beyond the default options</li>
             <li>• Each category maps to a specific AI model with its own capabilities and pricing</li>
+            <li>• All categories can be updated to use different models - including default categories</li>
             <li>• Custom categories appear in your model selector alongside Fast, Standard, etc.</li>
-            <li>• Default categories (Fast, Standard, Fast Reasoning, Reasoning) cannot be deleted</li>
+            <li>• Only custom categories can be deleted; default categories (Fast, Standard, etc.) are permanent</li>
           </ul>
         </div>
       </Card>
 
-      {/* Models Modal */}
+      {/* Models Modal for Adding */}
       <ModelsModal
         isOpen={isModelsModalOpen}
         onClose={() => setIsModelsModalOpen(false)}
@@ -330,6 +482,17 @@ const ModelCategoriesSection: React.FC = () => {
         onSelectModel={(model) => {
           setSelectedModelId(model.id);
           setIsModelsModalOpen(false);
+        }}
+      />
+
+      {/* Models Modal for Editing */}
+      <ModelsModal
+        isOpen={isEditModelsModalOpen}
+        onClose={() => setIsEditModelsModalOpen(false)}
+        selectionMode={true}
+        onSelectModel={(model) => {
+          setEditSelectedModelId(model.id);
+          setIsEditModelsModalOpen(false);
         }}
       />
     </div>
