@@ -103,9 +103,9 @@ export type Message = {
   content: string;
   image_urls?: string[] | null;
   document_context?: DocumentContext | null;
-  chart_data?: ChartData | null; // Chart data from backend
+  chart_data?: ChartData | ChartData[] | null; // Chart data from backend - can be single or multiple charts
   input_tokens?: number | null;      // Input/prompt tokens
-  output_tokens?: number | null;     // Output/completion tokens  
+  output_tokens?: number | null;     // Output/completion tokens
   total_tokens?: number | null;      // Total tokens used
   model_cost?: number | null;        // Cost in USD (optional)
   created_at: string;

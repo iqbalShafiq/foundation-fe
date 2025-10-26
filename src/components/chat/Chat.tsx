@@ -29,7 +29,7 @@ const Chat: React.FC = () => {
   const [userModelCategories, setUserModelCategories] = useState<UserModelCategory[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState("");
-  const [currentChartContent, setCurrentChartContent] = useState<any>(null);
+  const [currentChartContent, setCurrentChartContent] = useState<any[]>([]); // Changed to array to support multiple charts
   const [currentThinkingContent, setCurrentThinkingContent] = useState("");
   const [currentReasoningContent, setCurrentReasoningContent] = useState("");
   const [streamingPhase, setStreamingPhase] = useState<'thinking' | 'reasoning' | 'answer' | 'answering' | null>(null);
@@ -90,7 +90,7 @@ const Chat: React.FC = () => {
         if (isStreaming) {
           setIsStreaming(false);
           setCurrentStreamContent("");
-          setCurrentChartContent(null);
+          setCurrentChartContent([]);
           setCurrentThinkingContent("");
           setCurrentReasoningContent("");
           setStreamingPhase(null);
@@ -104,7 +104,7 @@ const Chat: React.FC = () => {
         setCurrentConversationTitle("");
         setCurrentConversationCategoryName(null);
         setCurrentStreamContent("");
-        setCurrentChartContent(null);
+        setCurrentChartContent([]);
         setCurrentThinkingContent("");
         setCurrentReasoningContent("");
         setStreamingPhase(null);
@@ -221,7 +221,7 @@ const Chat: React.FC = () => {
   const loadConversation = async (conversationId: string) => {
     console.log('Loading conversation:', conversationId);
     setCurrentStreamContent("");
-    setCurrentChartContent(null);
+    setCurrentChartContent([]);
     setCurrentThinkingContent("");
     setCurrentReasoningContent("");
     setStreamingPhase(null);
@@ -250,21 +250,37 @@ const Chat: React.FC = () => {
         
         // Chart should only be displayed in assistant messages
         if (msg.role === 'assistant') {
-          // Check if this assistant message has chart data
+          // Check if this assistant message has chart data (single or array)
           if (msg.chart_data) {
             messageType = 'chart';
-            // Combine chart data with text content
-            if (msg.content && msg.content.trim()) {
-              content = JSON.stringify({
-                chart_data: msg.chart_data.chart_data,
-                chart_type: msg.chart_data.chart_type,
-                description: msg.chart_data.description,
-                config: msg.chart_data.config,
-                text_content: msg.content.trim()
-              });
+
+            // Handle both single chart and multiple charts
+            if (Array.isArray(msg.chart_data)) {
+              // Multiple charts from backend
+              if (msg.content && msg.content.trim()) {
+                content = JSON.stringify({
+                  charts: msg.chart_data,
+                  text_content: msg.content.trim()
+                });
+              } else {
+                content = JSON.stringify({
+                  charts: msg.chart_data
+                });
+              }
             } else {
-              // Only chart data, no text content
-              content = JSON.stringify(msg.chart_data);
+              // Single chart - backward compatible format
+              if (msg.content && msg.content.trim()) {
+                content = JSON.stringify({
+                  chart_data: msg.chart_data.chart_data,
+                  chart_type: msg.chart_data.chart_type,
+                  description: msg.chart_data.description,
+                  config: msg.chart_data.config,
+                  text_content: msg.content.trim()
+                });
+              } else {
+                // Only chart data, no text content
+                content = JSON.stringify(msg.chart_data);
+              }
             }
           } else {
             // Check if the previous user message has chart data (chart request)
@@ -379,7 +395,7 @@ const Chat: React.FC = () => {
     // Set streaming state to show thinking indicator
     setIsStreaming(true);
     setCurrentStreamContent("");
-    setCurrentChartContent(null);
+    setCurrentChartContent([]);
     setCurrentThinkingContent("");
     setCurrentReasoningContent("");
     setStreamingPhase('thinking');
@@ -428,14 +444,14 @@ const Chat: React.FC = () => {
               // Clear all previous answer content before starting fresh
               fullContent = "";
               setCurrentStreamContent("");
-              setCurrentChartContent(null);
+              setCurrentChartContent([]);
               setCurrentThinkingContent("");
               setCurrentReasoningContent("");
               setStreamingPhase('answering');
               break;
             case "chart":
-              // Handle chart response - store chart separately
-              setCurrentChartContent(chunk.content);
+              // Handle chart response - accumulate charts in array for multiple chart support
+              setCurrentChartContent(prev => [...prev, chunk.content]);
               setStreamingPhase('answer');
               setCurrentThinkingContent("");
               setCurrentReasoningContent("");
@@ -506,20 +522,43 @@ const Chat: React.FC = () => {
         }
 
         if (chunk.done) {
-          // If we have both chart and text content, combine them properly
-          if (currentChartContent && fullContent.trim()) {
-            // Store both chart and text content
-            assistantMessage.content = JSON.stringify({
-              chart_data: currentChartContent.chart_data || currentChartContent,
-              text_content: fullContent.trim(),
-              chart_type: currentChartContent.chart_type,
-              description: currentChartContent.description,
-              config: currentChartContent.config || {}
-            });
+          // If we have charts (single or multiple) and text content, combine them properly
+          if (currentChartContent.length > 0 && fullContent.trim()) {
+            // Store both chart(s) and text content
+            if (currentChartContent.length === 1) {
+              // Single chart - keep backward compatible format
+              const singleChart = currentChartContent[0];
+              assistantMessage.content = JSON.stringify({
+                chart_data: singleChart.chart_data || singleChart,
+                text_content: fullContent.trim(),
+                chart_type: singleChart.chart_type,
+                description: singleChart.description,
+                config: singleChart.config || {}
+              });
+            } else {
+              // Multiple charts - store as array
+              assistantMessage.content = JSON.stringify({
+                charts: currentChartContent.map(chart => ({
+                  chart_data: chart.chart_data || chart,
+                  chart_type: chart.chart_type,
+                  description: chart.description,
+                  config: chart.config || {}
+                })),
+                text_content: fullContent.trim()
+              });
+            }
             assistantMessage.type = 'chart';
-          } else if (currentChartContent) {
-            // Only chart content
-            assistantMessage.content = currentChartContent;
+          } else if (currentChartContent.length > 0) {
+            // Only chart content (no text)
+            if (currentChartContent.length === 1) {
+              // Single chart
+              assistantMessage.content = currentChartContent[0];
+            } else {
+              // Multiple charts
+              assistantMessage.content = JSON.stringify({
+                charts: currentChartContent
+              });
+            }
             assistantMessage.type = 'chart';
           } else {
             // Only text content
@@ -536,7 +575,7 @@ const Chat: React.FC = () => {
           }
           setMessages((prev) => [...prev, assistantMessage]);
           setCurrentStreamContent("");
-          setCurrentChartContent(null);
+          setCurrentChartContent([]);
           setCurrentThinkingContent("");
           setCurrentReasoningContent("");
           setStreamingPhase(null);
@@ -572,24 +611,40 @@ const Chat: React.FC = () => {
                 // Determine message type and content
                 let messageType: 'text' | 'chart' = 'text';
                 let content = msg.content;
-                
+
                 // Chart should only be displayed in assistant messages
                 if (msg.role === 'assistant') {
-                  // Check if this assistant message has chart data
+                  // Check if this assistant message has chart data (single or array)
                   if (msg.chart_data) {
                     messageType = 'chart';
-                    // Combine chart data with text content
-                    if (msg.content && msg.content.trim()) {
-                      content = JSON.stringify({
-                        chart_data: msg.chart_data.chart_data,
-                        chart_type: msg.chart_data.chart_type,
-                        description: msg.chart_data.description,
-                        config: msg.chart_data.config,
-                        text_content: msg.content.trim()
-                      });
+
+                    // Handle both single chart and multiple charts
+                    if (Array.isArray(msg.chart_data)) {
+                      // Multiple charts from backend
+                      if (msg.content && msg.content.trim()) {
+                        content = JSON.stringify({
+                          charts: msg.chart_data,
+                          text_content: msg.content.trim()
+                        });
+                      } else {
+                        content = JSON.stringify({
+                          charts: msg.chart_data
+                        });
+                      }
                     } else {
-                      // Only chart data, no text content
-                      content = JSON.stringify(msg.chart_data);
+                      // Single chart - backward compatible format
+                      if (msg.content && msg.content.trim()) {
+                        content = JSON.stringify({
+                          chart_data: msg.chart_data.chart_data,
+                          chart_type: msg.chart_data.chart_type,
+                          description: msg.chart_data.description,
+                          config: msg.chart_data.config,
+                          text_content: msg.content.trim()
+                        });
+                      } else {
+                        // Only chart data, no text content
+                        content = JSON.stringify(msg.chart_data);
+                      }
                     }
                   } else {
                     // Check if the previous user message has chart data (chart request)
@@ -664,7 +719,7 @@ const Chat: React.FC = () => {
       };
       setMessages((prev) => [...prev, errorMessage]);
       setCurrentStreamContent("");
-      setCurrentChartContent(null);
+      setCurrentChartContent([]);
       setCurrentThinkingContent("");
       setCurrentReasoningContent("");
       setStreamingPhase(null);
@@ -849,16 +904,18 @@ const Chat: React.FC = () => {
                         <AnsweringIndicator />
                       )}
                       {/* Show streaming answer for both ChatOpenAI and React Agent */}
-                      {streamingPhase === 'answer' && (currentStreamContent || currentChartContent) && (
+                      {streamingPhase === 'answer' && (currentStreamContent || currentChartContent.length > 0) && (
                         <div className="flex items-start space-x-3 py-3">
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md">
                             <span className="text-sm">🤖</span>
                           </div>
                           <div className="flex-1 max-w-4xl">
-                            {/* Show chart if we have chart content */}
-                            {currentChartContent && (
-                              <div className="mb-4">
-                                <PlotlyChart data={currentChartContent} />
+                            {/* Show charts if we have chart content */}
+                            {currentChartContent.length > 0 && (
+                              <div className="space-y-4 mb-4">
+                                {currentChartContent.map((chart, index) => (
+                                  <PlotlyChart key={index} data={chart} />
+                                ))}
                               </div>
                             )}
                             
@@ -945,10 +1002,10 @@ const Chat: React.FC = () => {
                               </span>
                               <span className="mx-1">•</span>
                               <span>{getDisplayNameForModel(selectedModel)}</span>
-                              {currentChartContent && (
+                              {currentChartContent.length > 0 && (
                                 <>
                                   <span className="mx-1">•</span>
-                                  <span>Chart</span>
+                                  <span>{currentChartContent.length > 1 ? `${currentChartContent.length} Charts` : 'Chart'}</span>
                                 </>
                               )}
                               {currentStreamContent && <span className="animate-pulse ml-1">|</span>}

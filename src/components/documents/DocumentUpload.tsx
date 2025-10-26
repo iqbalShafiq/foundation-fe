@@ -25,6 +25,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'text/plain',
+    'text/csv',
   ];
 
   const handleFiles = async (files: FileList) => {
@@ -33,7 +34,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     const file = files[0];
     
     if (!supportedTypes.includes(file.type)) {
-      const error = 'Unsupported file type. Please upload PDF, Word, Excel, PowerPoint, or text files.';
+      const error = 'Unsupported file type. Please upload PDF, Word, Excel, PowerPoint, CSV, or text files.';
       onUploadError?.(error);
       return;
     }
@@ -103,7 +104,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept=".pdf,.docx,.xlsx,.pptx,.txt"
+          accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt"
           onChange={handleFileSelect}
           disabled={isUploading}
         />
@@ -142,7 +143,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       <div className="mt-4 text-xs text-gray-500">
         <div className="flex items-center space-x-2">
           <AlertCircle className="h-4 w-4" />
-          <span>Supported formats: PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), Text (.txt)</span>
+          <span>Supported formats: PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), CSV (.csv), Text (.txt)</span>
         </div>
         <div className="mt-1 ml-6">
           Maximum file size: 10MB

@@ -365,7 +365,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onDocumentUploaded }) => 
         type="file"
         onChange={handleFileSelect}
         className="hidden"
-        accept=".pdf,.doc,.docx,.txt,.md"
+        accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt"
       />
       
       <Button
